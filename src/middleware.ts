@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getBaseUrl } from '@/lib/utils'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -40,7 +39,7 @@ export async function middleware(request: NextRequest) {
       await supabase.auth.exchangeCodeForSession(code)
     }
     
-    return NextResponse.redirect(new URL(next, getBaseUrl()))
+    return NextResponse.redirect(new URL(next, request.url))
   }
 
   // Only redirect to signin if user is not authenticated and trying to access protected routes

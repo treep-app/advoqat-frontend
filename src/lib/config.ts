@@ -32,12 +32,18 @@ export const API_ENDPOINTS = {
   FREELANCERS: {
     LIST: `${BACKEND_URL}/api/freelancers`,
     FREELANCER: (id: string) => `${BACKEND_URL}/api/freelancers/${id}`,
+    AVAILABILITY: (userId: string) => `${BACKEND_URL}/api/freelancers/availability/${userId}`,
+    EARNINGS: (userId: string) => `${BACKEND_URL}/api/freelancers/earnings/${userId}`,
+    CASES: (userId: string) => `${BACKEND_URL}/api/freelancers/cases/${userId}`,
+    REGISTER: `${BACKEND_URL}/api/freelancers/register`,
   },
   
   // User endpoints
   USERS: {
     PROFILE: `${BACKEND_URL}/api/users/profile`,
     UPDATE: `${BACKEND_URL}/api/users/update`,
+    SYNC: `${BACKEND_URL}/api/users/sync`,
+    ONBOARDING: `${BACKEND_URL}/api/users/onboarding`,
   },
   
   // Case endpoints

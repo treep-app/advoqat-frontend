@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Scale, CheckCircle, ArrowRight } from 'lucide-react'
+import { API_ENDPOINTS } from '@/lib/config'
 
 const legalInterests = [
   {
@@ -69,7 +70,7 @@ export default function OnboardingPage() {
 
     try {
       // Call the onboarding API endpoint
-      const response = await fetch('/api/v1/onboarding', {
+      const response = await fetch(`${API_ENDPOINTS.USERS.ONBOARDING}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Scale, Mail, Lock, User, Phone, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { API_ENDPOINTS } from '@/lib/config'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -17,7 +18,6 @@ export default function SignUpPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const BASE_URL = process.env.BASE_URL || 'http://localhost:5001';
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -94,7 +94,7 @@ export default function SignUpPage() {
         // Check if user was created (even if not confirmed)
         if (signUpData.user) {
           // Sync user to backend using the user data from signup response
-          const syncRes = await fetch(`${BASE_URL}/api/users/sync`, {
+          const syncRes = await fetch(`${API_ENDPOINTS.USERS.SYNC}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

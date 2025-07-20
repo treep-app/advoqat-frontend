@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Scale } from "lucide-react";
+import { API_ENDPOINTS } from "@/lib/config";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5001";
 
 const EXPERTISE_OPTIONS = [
   "Consumer Law",
@@ -164,7 +164,7 @@ export default function FreelancerRegisterPage() {
       return;
     }
     // 4. Sync user to backend
-    const syncRes = await fetch(`${BASE_URL}/api/users/sync`, {
+    const syncRes = await fetch(`${API_ENDPOINTS.USERS.SYNC}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -210,7 +210,7 @@ export default function FreelancerRegisterPage() {
     const additionalDocuments = form.additionalDocuments.map(f => `/uploads/${f.name}`);
     setUploading(false);
     // 6. Register freelancer
-    const regRes = await fetch(`${BASE_URL}/api/freelancers/register`, {
+    const regRes = await fetch(`${API_ENDPOINTS.FREELANCERS.REGISTER}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

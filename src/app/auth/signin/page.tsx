@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Scale, Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { API_ENDPOINTS } from '@/lib/config'
 
 export default function SignInPage() {
   const router = useRouter()
@@ -73,7 +74,7 @@ export default function SignInPage() {
           return
         }
         // Sync user to backend
-        const syncRes = await fetch('http://localhost:5001/api/users/sync', {
+        const syncRes = await fetch(`${API_ENDPOINTS.USERS.SYNC}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -121,7 +122,7 @@ export default function SignInPage() {
           return
         }
         // Sync user to backend
-        const syncRes = await fetch('http://localhost:5001/api/users/sync', {
+        const syncRes = await fetch(`${API_ENDPOINTS.USERS.SYNC}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bell, Scale, User, Clock, LogOut, Menu, ChevronLeft, DollarSign, Circle, MessageCircle, FileText, Star, Settings, CheckCircle, Plus, RefreshCw, Search } from "lucide-react";
-
-const BASE_URL = process.env.BASE_URL || "http://localhost:5001";
+import { API_ENDPOINTS } from "@/lib/config";
 
 const PRIORITY_COLORS = {
   High: "bg-red-100 text-red-700",
@@ -48,7 +47,7 @@ export default function FreelancerDashboard() {
     }
     setAvailabilityLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/freelancers/availability/${userId}`, {
+      const res = await fetch(`${API_ENDPOINTS.FREELANCERS.AVAILABILITY(userId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isAvailable: !availability })
@@ -74,11 +73,12 @@ export default function FreelancerDashboard() {
       setError("");
       try {
         // Quick stats: earnings, pending reviews, active cases
-        const earningsRes = await fetch(`${BASE_URL}/api/freelancers/earnings/${userId}`);
+        if (!userId) throw new Error("User ID not found");
+        const earningsRes = await fetch(`${API_ENDPOINTS.FREELANCERS.EARNINGS(userId)}`);
         const earningsData = earningsRes.ok ? await earningsRes.json() : { totalEarnings: 0 };
         // const ratingsRes = await fetch(`${BASE_URL}/api/freelancers/ratings/${userId}`);
         // const ratingsData = ratingsRes.ok ? await ratingsRes.json() : { performanceScore: 0 };
-        const casesRes = await fetch(`${BASE_URL}/api/freelancers/cases/${userId}`);
+        const casesRes = await fetch(`${API_ENDPOINTS.FREELANCERS.CASES(userId)}`);
         const casesData = casesRes.ok ? await casesRes.json() : [];
         // For demo, treat pending = status 'pending', active = status 'accepted' or 'active'
         const pending = casesData.filter((c: Case) => c.status === 'pending');

@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from '@/lib/config'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
@@ -38,8 +39,8 @@ export async function GET(request: NextRequest) {
     if (!error && data.user) {
       // Sync user to backend
       try {
-        const BASE_URL = process.env.BASE_URL || 'http://localhost:5001'
-        const syncRes = await fetch(`${BASE_URL}/api/users/sync`, {
+       
+        const syncRes = await fetch(`${API_ENDPOINTS.USERS.SYNC}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -1,157 +1,172 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Scale, User, MessageCircle, Calendar, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useToastContext } from '@/components/ui/toast-context'
+import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
-import Image from 'next/image';
+import { API_ENDPOINTS } from '@/lib/config'
+import { 
+  Search, 
+  Calendar, 
+  Clock, 
+  Video, 
+  MessageCircle, 
+  Star, 
+  Award, 
+  Users, 
+  CheckCircle, 
+  XCircle, 
+  AlertCircle,
+  Plus,
+  Filter,
+  SortAsc,
+  MessageSquare,
+  ThumbsUp,
+  Edit,
+  Trash2,
+  Eye,
+  BookOpen,
+  UserCheck,
+  TrendingUp,
+  CalendarDays,
+  Clock4,
+  VideoIcon,
+  MessageSquareText
+} from 'lucide-react'
+import { User as SupabaseUser } from '@supabase/supabase-js'
 
-type Lawyer = {
-  id: string;
-  fullName: string;
-  specialty: string[];
-  availability: string[];
-  avatarUrl: string;
-};
+// Types
+interface Lawyer {
+  id: string | number
+  fullname: string
+  specialty: string[]
+  email?: string
+  phone?: string
+  experience?: number
+  performance_score?: number | string
+  is_available?: boolean
+  is_verified?: boolean
+  verification_status?: string
+  avatarUrl?: string
+  id_card_url?: string
+  bar_certificate_url?: string
+  availability?: string[]
+}
 
-type Consultation = {
-  id: string;
-  lawyerName: string;
-  datetime: string;
-  method: string;
-  roomUrl?: string;
-  status: string;
-  notes?: string; // Added for notes
-};
+interface Consultation {
+  id: string | number
+  lawyerName: string
+  datetime: string
+  method: string
+  status: string
+  roomUrl?: string
+  notes?: string
+}
 
-type User = {
-  id: string;
-  email?: string;
-  user_metadata?: { full_name?: string };
-};
-
-export default function ConsultationsDashboard() {
+export default function LegalConsultations() {
   const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { toast } = useToastContext()
   const [tab, setTab] = useState('find')
-  const [lawyers, setLawyers] = useState<Lawyer[]>([])
-  const [consultations, setConsultations] = useState<Consultation[]>([])
-  const [selectedLawyer, setSelectedLawyer] = useState<Lawyer | null>(null)
+  const [lawyerSearch, setLawyerSearch] = useState('')
   const [showBooking, setShowBooking] = useState(false)
+  const [selectedLawyer, setSelectedLawyer] = useState<Lawyer | null>(null)
+  const [showLawyerProfile, setShowLawyerProfile] = useState(false)
+  const [profileLawyer, setProfileLawyer] = useState<Lawyer | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null)
+  const [showReschedule, setShowReschedule] = useState(false)
+  const [showFindLawyer, setShowFindLawyer] = useState(false)
 
-  // Booking form state
+  // Form states
   const [bookingDate, setBookingDate] = useState('')
   const [bookingTime, setBookingTime] = useState('')
-  const [bookingMethod, setBookingMethod] = useState<'video' | 'chat'>('video')
+  const [bookingMethod, setBookingMethod] = useState('video')
   const [bookingNotes, setBookingNotes] = useState('')
-  const [bookingLoading, setBookingLoading] = useState(false)
-
-  // Feedback form state
   const [feedbackRating, setFeedbackRating] = useState(5)
   const [feedbackComments, setFeedbackComments] = useState('')
-  const [feedbackLoading, setFeedbackLoading] = useState(false)
-
-  // Cancel/Reschedule state
-  const [rescheduleLoading, setRescheduleLoading] = useState(false)
-  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null)
-
-  // Reschedule modal state
-  const [showReschedule, setShowReschedule] = useState(false)
   const [rescheduleDate, setRescheduleDate] = useState('')
   const [rescheduleTime, setRescheduleTime] = useState('')
 
-  // Lawyer profile modal state
-  const [showLawyerProfile, setShowLawyerProfile] = useState(false)
-  const [profileLawyer, setProfileLawyer] = useState<Lawyer | null>(null)
+  // Data states
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [lawyers, setLawyers] = useState<Lawyer[]>([])
+  const [consultations, setConsultations] = useState<Consultation[]>([])
+  const [loadingLawyers, setLoadingLawyers] = useState(true)
+  const [loadingConsultations, setLoadingConsultations] = useState(true)
+  const [lawyersError, setLawyersError] = useState<string | null>(null)
+  const [consultationsError, setConsultationsError] = useState<string | null>(null)
+  const [bookingLoading, setBookingLoading] = useState(false)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [rescheduleLoading, setRescheduleLoading] = useState(false)
 
-  // Feedback tracking (simulate feedback left for demo; in real app, fetch from backend)
-  const [feedbackGiven, setFeedbackGiven] = useState<{ [consultationId: string]: boolean }>({})
-
-  // Lawyer search/filter state
-  const [lawyerSearch, setLawyerSearch] = useState('')
-
-  // Toast notification state
-  const [showToast, setShowToast] = useState(false)
-  const [toastMsg, setToastMsg] = useState('')
-
-  // Show toast for upcoming consultations within the next hour
-  useEffect(() => {
-    const now = new Date();
-    const soon = new Date(now.getTime() + 60 * 60 * 1000);
-    const nextConsult = consultations.find(c => new Date(c.datetime) > now && new Date(c.datetime) <= soon && c.status === 'confirmed');
-    if (nextConsult) {
-      setToastMsg(`You have a consultation with ${nextConsult.lawyerName} at ${new Date(nextConsult.datetime).toLocaleTimeString()}`);
-      setShowToast(true);
-      const timer = setTimeout(() => setShowToast(false), 8000);
-      return () => clearTimeout(timer);
-    }
-  }, [consultations]);
-
-  console.log(`consultations: ${consultations}`)
+  // Remove BASE_URL since we're using API_ENDPOINTS
 
   // Fetch user
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser()
-      if (error || !user) {
+      const { data, error } = await supabase.auth.getUser()
+      if (error || !data.user) {
         router.push('/auth/signin')
         return
       }
-      setUser(user)
-      setLoading(false)
+      setUser(data.user)
     }
     getUser()
   }, [router])
 
   // Fetch lawyers
   useEffect(() => {
-    if (!user) return
-    fetch('/api/lawyers')
+    setLoadingLawyers(true)
+    setLawyersError(null)
+    fetch(API_ENDPOINTS.FREELANCERS.LIST)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          setLawyers(data)
-        } else {
-          setLawyers([]) // fallback to empty array on error
-          // Optionally: show a toast or error message here
-        }
+        setLawyers(Array.isArray(data) ? data : [])
       })
-  }, [user])
+      .catch(() => setLawyersError('Failed to load lawyers.'))
+      .finally(() => setLoadingLawyers(false))
+  }, [])
 
   // Fetch consultations
-  useEffect(() => {
+  const fetchConsultations = () => {
     if (!user) return
-    fetch('/api/consultations/my')
-    .then(res => res.json())
-    .then(data => {
-      if (Array.isArray(data)) {
-        setConsultations(data)
-      } else {
-        setConsultations([]) // or handle error: set an error state
-        // Optionally: show a toast or error message
-      }
-    })
-  }, [user, showBooking, showFeedback])
+    setLoadingConsultations(true)
+    setConsultationsError(null)
+    fetch(`${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        setConsultations(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setConsultationsError('Failed to load consultations.'))
+      .finally(() => setLoadingConsultations(false))
+  }
+  useEffect(() => {
+    if (user) fetchConsultations()
+  }, [user, fetchConsultations])
 
-  // Handle booking submit
+  // Book consultation
   const handleBookConsultation = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedLawyer || !bookingDate || !bookingTime) return
+    if (!selectedLawyer || !bookingDate || !bookingTime || !user) return
     setBookingLoading(true)
-    setMessage(null)
     try {
       const datetime = new Date(`${bookingDate}T${bookingTime}`)
-      const res = await fetch('/api/consultations/book', {
+      const res = await fetch(API_ENDPOINTS.CONSULTATIONS.BOOK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user?.id,
+          userId: user.id,
           lawyerId: selectedLawyer.id,
           datetime: datetime.toISOString(),
           method: bookingMethod,
@@ -163,22 +178,31 @@ export default function ConsultationsDashboard() {
       setBookingDate('')
       setBookingTime('')
       setBookingNotes('')
-      setMessage({ type: 'success', text: 'Consultation booked!' })
+      toast({
+        title: 'Consultation Booked',
+        description: 'Your consultation has been successfully scheduled.',
+        variant: 'success'
+      })
+      fetchConsultations()
     } catch {
-      setMessage({ type: 'error', text: 'Failed to book consultation.' })
+      toast({
+        title: 'Booking Failed',
+        description: 'Could not book consultation. Please try again.',
+        variant: 'destructive'
+      })
     } finally {
       setBookingLoading(false)
     }
   }
 
-  // Handle feedback submit
+  // Submit feedback
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedConsultation) return
     setFeedbackLoading(true)
-    setMessage(null)
+    console.log('Feedback loading ', selectedConsultation)
     try {
-      const res = await fetch(`/api/consultations/${selectedConsultation.id}/feedback`, {
+      const res = await fetch(API_ENDPOINTS.CONSULTATIONS.FEEDBACK(selectedConsultation.id.toString()), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -186,376 +210,909 @@ export default function ConsultationsDashboard() {
           comments: feedbackComments
         })
       })
+      console.log('Feedback res', res)
       if (!res.ok) throw new Error('Feedback failed')
       setShowFeedback(false)
       setFeedbackComments('')
-      setMessage({ type: 'success', text: 'Feedback submitted!' })
-      if (selectedConsultation) {
-        setFeedbackGiven(prev => ({ ...prev, [selectedConsultation.id]: true }))
-      }
+      toast({
+        title: 'Feedback Submitted',
+        description: 'Thank you for your feedback!',
+        variant: 'success'
+      })
+      console.log('Feedback submitted + reschedule')
+      fetchConsultations()
     } catch {
-      setMessage({ type: 'error', text: 'Failed to submit feedback.' })
+      console.log('Feedback failed')
+      toast({
+        title: 'Feedback Failed',
+        description: 'Could not submit feedback. Please try again.',
+        variant: 'destructive'
+      })
     } finally {
+      console.log('Feedback finally')
       setFeedbackLoading(false)
     }
   }
 
-  // Handle cancel
-  const handleCancelConsultation = async (consultation: Consultation) => {
-    setRescheduleLoading(true)
-    setMessage(null)
-    try {
-      const res = await fetch(`/api/consultations/${consultation.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel' })
-      })
-      if (!res.ok) throw new Error('Cancel failed')
-      setMessage({ type: 'success', text: 'Consultation cancelled.' })
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to cancel consultation.' })
-    } finally {
-      setRescheduleLoading(false)
-    }
-  }
-
-  // Handle reschedule
+  // Reschedule
   const handleRescheduleConsultation = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedConsultation || !rescheduleDate || !rescheduleTime) return
     setRescheduleLoading(true)
-    setMessage(null)
     try {
       const newDatetime = new Date(`${rescheduleDate}T${rescheduleTime}`)
-      const res = await fetch(`/api/consultations/${selectedConsultation.id}`, {
+      const res = await fetch(API_ENDPOINTS.CONSULTATIONS.CONSULTATION(selectedConsultation.id.toString()), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reschedule', newDatetime: newDatetime.toISOString() })
+        body: JSON.stringify({
+          action: 'reschedule',
+          newDatetime: newDatetime.toISOString()
+        })
       })
       if (!res.ok) throw new Error('Reschedule failed')
       setShowReschedule(false)
       setRescheduleDate('')
       setRescheduleTime('')
-      setMessage({ type: 'success', text: 'Consultation rescheduled.' })
+      toast({
+        title: 'Consultation Rescheduled',
+        description: 'Your consultation has been successfully rescheduled.',
+        variant: 'success'
+      })
+      fetchConsultations()
     } catch {
-      setMessage({ type: 'error', text: 'Failed to reschedule consultation.' })
+      toast({
+        title: 'Reschedule Failed',
+        description: 'Could not reschedule consultation. Please try again.',
+        variant: 'destructive'
+      })
     } finally {
       setRescheduleLoading(false)
     }
   }
 
-  // Add to Calendar helper
-  function getGoogleCalendarUrl(consultation: Consultation) {
-    const start = new Date(consultation.datetime);
-    const end = new Date(start.getTime() + 30 * 60 * 1000); // 30 min default
-    const details = encodeURIComponent('LegaliQ Consultation');
-    const location = encodeURIComponent(consultation.roomUrl || '');
-    const text = encodeURIComponent(`Consultation with ${consultation.lawyerName}`);
-    return `https://www.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${start.toISOString().replace(/[-:]|\.\d{3}/g, '')}/${end.toISOString().replace(/[-:]|\.\d{3}/g, '')}&details=${details}&location=${location}`;
+  // Cancel consultation
+  const handleCancelConsultation = async (consultation: Consultation) => {
+    try {
+      const res = await fetch(API_ENDPOINTS.CONSULTATIONS.CONSULTATION(consultation.id.toString()), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' })
+      })
+      if (!res.ok) throw new Error('Cancel failed')
+      toast({
+        title: 'Consultation Cancelled',
+        description: 'Your consultation has been cancelled.',
+        variant: 'success'
+      })
+      fetchConsultations()
+    } catch {
+      toast({
+        title: 'Cancel Failed',
+        description: 'Could not cancel consultation. Please try again.',
+        variant: 'destructive'
+      })
+    }
   }
 
-  if (loading) {
+  const handleFindLawyer = () => {
+    setShowFindLawyer(true)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'bg-green-100 text-green-800 border-green-200'
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200'
+      case 'rescheduled': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'confirmed': return <CheckCircle className="h-4 w-4" />
+      case 'cancelled': return <XCircle className="h-4 w-4" />
+      case 'rescheduled': return <AlertCircle className="h-4 w-4" />
+      case 'completed': return <CheckCircle className="h-4 w-4" />
+      default: return <Clock className="h-4 w-4" />
+    }
+  }
+
+  const getMethodIcon = (method: string) => {
+    return method === 'video' ? <Video className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />
+  }
+
+  const filteredLawyers = lawyers.filter((lawyer) =>
+    (lawyer.fullname ?? '').toLowerCase().includes(lawyerSearch.toLowerCase()) ||
+    (lawyer.specialty &&
+      lawyer.specialty.some((s) =>
+        s.toLowerCase().includes(lawyerSearch.toLowerCase())
+      )) ||
+    (lawyer.email &&
+      lawyer.email.toLowerCase().includes(lawyerSearch.toLowerCase()))
+  )
+
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <Scale className="h-12 w-12 text-blue-600 animate-pulse" />
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="flex items-center space-x-2">
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back to Dashboard</span>
-              </Button>
-              <div className="flex items-center space-x-2">
-                <Scale className="h-8 w-8 text-blue-600" />
-                <span className="text-xl font-bold text-gray-900">LegaliQ</span>
-              </div>
+    <AppLayout currentPage="/dashboard/consultations">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Legal Consultations</h1>
+              <p className="text-gray-600">Connect with qualified legal professionals for expert advice</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <User className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-700">{user?.user_metadata?.full_name || user?.email}</span>
-            </div>
+            <Button onClick={handleFindLawyer} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              Find a Lawyer
+            </Button>
           </div>
         </div>
-      </header>
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Legal Consultations</h1>
-        {message && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center space-x-2 ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-700' 
-              : 'bg-red-50 border border-red-200 text-red-700'
-          }`}>
-            {message.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
-            <span>{message.text}</span>
-          </div>
-        )}
-        <Tabs defaultValue="find" value={tab} onValueChange={setTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="find">Find a Lawyer</TabsTrigger>
-            <TabsTrigger value="my">My Consultations</TabsTrigger>
+
+        {/* Main Content */}
+        <Tabs value={tab} onValueChange={setTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-2">
+            <TabsTrigger value="find" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Find a Lawyer
+            </TabsTrigger>
+            <TabsTrigger value="my" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              My Consultations
+            </TabsTrigger>
           </TabsList>
+
           {/* Find a Lawyer Tab */}
-          <TabsContent value="find">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="mb-4">
-                <input
-                  type="text"
-                  className="w-full border rounded p-2"
-                  placeholder="Search by name or specialty..."
-                  value={lawyerSearch}
-                  onChange={e => setLawyerSearch(e.target.value)}
-                />
+          <TabsContent value="find" className="space-y-6">
+            {/* Search and Filters */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Find Legal Professionals
+                </CardTitle>
+                <CardDescription>
+                  Search and connect with verified legal experts in your area
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search by name, specialty, or email..."
+                        value={lawyerSearch}
+                        onChange={(e) => setLawyerSearch(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filter
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <SortAsc className="h-4 w-4 mr-2" />
+                      Sort
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Lawyers Grid */}
+            {loadingLawyers ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-2/3" />
+                      <Skeleton className="h-6 w-1/3" />
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-              {lawyers
-                .filter(lawyer =>
-                  lawyer.fullName.toLowerCase().includes(lawyerSearch.toLowerCase()) ||
-                  lawyer.specialty.some((s: string) => s.toLowerCase().includes(lawyerSearch.toLowerCase()))
-                )
-                .map(lawyer => (
-                <Card key={lawyer.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="flex flex-row items-center gap-4">
-                    <Image
-                      src={lawyer.avatarUrl}
-                      alt={lawyer.fullName}
-                      width={64}
-                      height={64}
-                      className="w-16 h-16 rounded-full object-cover border cursor-pointer"
-                      onClick={() => { setProfileLawyer(lawyer); setShowLawyerProfile(true); }}
-                      title="View profile"
-                    />
-                    <div>
-                      <CardTitle className="cursor-pointer" onClick={() => { setProfileLawyer(lawyer); setShowLawyerProfile(true); }} title="View profile">{lawyer.fullName}</CardTitle>
-                      <CardDescription>{lawyer.specialty.join(', ')}</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="mb-2 text-sm text-gray-600">
-                      <Calendar className="inline h-4 w-4 mr-1" />
-                      Next available: {lawyer.availability[0] ? new Date(lawyer.availability[0]).toLocaleString() : 'N/A'}
-                    </div>
-                    <Button onClick={() => { setSelectedLawyer(lawyer); setShowBooking(true); }} className="w-full bg-blue-600 hover:bg-blue-700">Book Consultation</Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            ) : lawyersError ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Lawyers</h3>
+                  <p className="text-gray-600 text-center">{lawyersError}</p>
+                  <Button onClick={() => window.location.reload()} className="mt-4">
+                    Try Again
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : filteredLawyers.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Users className="h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Lawyers Found</h3>
+                  <p className="text-gray-600 text-center">
+                    {lawyerSearch ? 'Try adjusting your search criteria' : 'No lawyers are currently available'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredLawyers.map((lawyer) => (
+                  <Card key={lawyer.id} className="group hover:shadow-lg transition-all duration-200 overflow-hidden">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                            <AvatarImage src={lawyer.avatarUrl} />
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                              {lawyer.fullname?.split(' ').map((n) => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-gray-900 truncate">{lawyer.fullname}</h3>
+                            <p className="text-sm text-gray-600">{lawyer.experience} years experience</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {lawyer.is_verified ? (
+                            <Badge variant="default" className="text-xs">
+                              <Award className="mr-1 h-3 w-3" />
+                              Verified
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              {lawyer.verification_status || 'Pending'}
+                            </Badge>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                            <span className="text-xs font-medium">
+                              {lawyer.performance_score}/5
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-gray-700">Specialties</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {lawyer.specialty?.slice(0, 3).map((area) => (
+                            <Badge key={area} variant="secondary" className="text-xs">
+                              {area}
+                            </Badge>
+                          ))}
+                          {lawyer.specialty && lawyer.specialty.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{lawyer.specialty.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center gap-2">
+                          {lawyer.is_available ? (
+                            <div className="flex items-center gap-1 text-green-600">
+                              <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                              <span className="text-xs font-medium">Available</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-gray-500">
+                              <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+                              <span className="text-xs font-medium">Offline</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setProfileLawyer(lawyer)
+                              setShowLawyerProfile(true)
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={!lawyer.is_available}
+                            onClick={() => {
+                              setSelectedLawyer(lawyer)
+                              setShowBooking(true)
+                            }}
+                          >
+                            <BookOpen className="h-4 w-4 mr-1" />
+                            Book
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
+
           {/* My Consultations Tab */}
-          <TabsContent value="my">
-            <Tabs defaultValue="upcoming" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                <TabsTrigger value="past">Past</TabsTrigger>
-              </TabsList>
-              {/* Upcoming Consultations */}
-              <TabsContent value="upcoming">
-                <div className="space-y-6">
-                  {consultations.filter(c => new Date(c.datetime) > new Date()).length === 0 ? (
-                    <div className="text-gray-500 text-center py-12">
-                      <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                      <p>No upcoming consultations.</p>
-                    </div>
-                  ) : (
-                    consultations.filter(c => new Date(c.datetime) > new Date()).map(consultation => {
-                      const isConfirmed = consultation.status === 'confirmed';
+          <TabsContent value="my" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  My Consultations
+                </CardTitle>
+                <CardDescription>
+                  Manage your scheduled and completed legal consultations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingConsultations ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                        <Skeleton className="h-8 w-20" />
+                      </div>
+                    ))}
+                  </div>
+                ) : consultationsError ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Consultations</h3>
+                    <p className="text-gray-600 text-center mb-4">{consultationsError}</p>
+                    <Button onClick={fetchConsultations}>Try Again</Button>
+                  </div>
+                ) : consultations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Calendar className="h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Consultations Yet</h3>
+                    <p className="text-gray-600 text-center mb-4">
+                      Book your first consultation with a legal professional
+                    </p>
+                    <Button onClick={handleFindLawyer}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Find a Lawyer
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {consultations.map((consultation) => {
+                      const isConfirmed = consultation.status === 'confirmed'
+                      const isCompleted = consultation.status === 'completed'
+                      const isCancelled = consultation.status === 'cancelled'
+                      const datetime = new Date(consultation.datetime)
+                      
                       return (
-                        <Card key={consultation.id} className="hover:shadow-md transition-shadow">
-                          <CardHeader>
-                            <CardTitle>{consultation.lawyerName}</CardTitle>
-                            <CardDescription>
-                              {new Date(consultation.datetime).toLocaleString()} &middot; {consultation.method}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                consultation.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                consultation.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                consultation.status === 'rescheduled' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-gray-100 text-gray-500'
-                              }`}>
-                                {consultation.status}
-                              </span>
-                              {consultation.roomUrl && isConfirmed ? (
-                                <Button size="sm" variant="outline" onClick={() => window.open(consultation.roomUrl, '_blank')} title="Join session">Join</Button>
-                              ) : null}
-                              {consultation.roomUrl && isConfirmed && (
-                                <a
-                                  href={getGoogleCalendarUrl(consultation)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-block ml-2 text-xs text-blue-600 underline"
-                                  title="Add to Google Calendar"
-                                >
-                                  Add to Calendar
-                                </a>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" title="Leave feedback for this consultation" onClick={() => { setSelectedConsultation(consultation); setShowFeedback(true); }} disabled={feedbackLoading}>Feedback</Button>
-                              <Button size="sm" variant="outline" title="Reschedule this consultation" onClick={() => { setSelectedConsultation(consultation); setShowReschedule(true); setRescheduleDate(''); setRescheduleTime(''); }} disabled={rescheduleLoading}>Reschedule</Button>
-                              <Button size="sm" variant="destructive" title="Cancel this consultation" onClick={() => handleCancelConsultation(consultation)} disabled={rescheduleLoading}>Cancel</Button>
+                        <Card key={consultation.id} className="overflow-hidden">
+                          <CardContent className="p-6">
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                              <div className="flex items-start gap-4">
+                                <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                                    {consultation.lawyerName?.split(' ').map((n) => n[0]).join('')}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h3 className="font-semibold text-gray-900">{consultation.lawyerName}</h3>
+                                    <Badge className={`${getStatusColor(consultation.status)} border`}>
+                                      {getStatusIcon(consultation.status)}
+                                      <span className="ml-1 capitalize">{consultation.status}</span>
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-600">
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-4 w-4" />
+                                      {datetime.toLocaleDateString()}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-4 w-4" />
+                                      {datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {getMethodIcon(consultation.method)}
+                                      <span className="capitalize">{consultation.method}</span>
+                                    </div>
+                                  </div>
+                                  {consultation.notes && (
+                                    <p className="text-sm text-gray-600 mt-2">{consultation.notes}</p>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                {isConfirmed && (
+                                  <>
+                                    {consultation.roomUrl && (
+                                      <Button variant="outline" size="sm" asChild>
+                                        <a href={consultation.roomUrl} target="_blank" rel="noopener noreferrer">
+                                          <Video className="h-4 w-4 mr-1" />
+                                          Join Meeting
+                                        </a>
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedConsultation(consultation)
+                                        setShowReschedule(true)
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4 mr-1" />
+                                      Reschedule
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleCancelConsultation(consultation)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-1" />
+                                      Cancel
+                                    </Button>
+                                  </>
+                                )}
+                                
+                                {isCompleted && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedConsultation(consultation)
+                                      setShowFeedback(true)
+                                    }}
+                                  >
+                                    <ThumbsUp className="h-4 w-4 mr-1" />
+                                    Leave Feedback
+                                  </Button>
+                                )}
+                                
+                                {isCancelled && (
+                                  <Badge variant="outline" className="text-gray-500">
+                                    Cancelled
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
-                      );
-                    })
-                  )}
-                </div>
-              </TabsContent>
-              {/* Past Consultations */}
-              <TabsContent value="past">
-                <div className="space-y-6">
-                  {consultations.filter(c => new Date(c.datetime) <= new Date()).length === 0 ? (
-                    <div className="text-gray-500 text-center py-12">
-                      <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                      <p>No past consultations.</p>
-                    </div>
-                  ) : (
-                    consultations.filter(c => new Date(c.datetime) <= new Date()).map(consultation => {
-                      const statusColor =
-                        consultation.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                        consultation.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                        consultation.status === 'rescheduled' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-gray-100 text-gray-500';
-                      const needsFeedback = !feedbackGiven[consultation.id] && consultation.status === 'confirmed';
-                      return (
-                        <Card key={consultation.id} className="hover:shadow-md transition-shadow">
-                          <CardHeader>
-                            <CardTitle>{consultation.lawyerName}</CardTitle>
-                            <CardDescription>
-                              {new Date(consultation.datetime).toLocaleString()} &middot; {consultation.method}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-1 rounded text-xs ${statusColor}`}>{consultation.status}</span>
-                              {consultation.roomUrl && consultation.status === 'confirmed' ? (
-                                <Button size="sm" variant="outline" disabled>Completed</Button>
-                              ) : null}
-                              {consultation.notes && (
-                                <div className="text-xs text-gray-500 mt-2">Notes: {consultation.notes}</div>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              {needsFeedback ? (
-                                <Button size="sm" variant="outline" title="Leave feedback for this consultation" onClick={() => { setSelectedConsultation(consultation); setShowFeedback(true); }}>Leave Feedback</Button>
-                              ) : (
-                                <span className="text-xs text-gray-400">Feedback submitted</span>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
-        {showBooking && selectedLawyer && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-bold mb-4">Book Consultation with {selectedLawyer.fullName}</h2>
-              <form onSubmit={handleBookConsultation} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date</label>
-                  <input type="date" className="w-full border rounded p-2" value={bookingDate} onChange={e => setBookingDate(e.target.value)} required />
+
+        {/* Booking Modal */}
+        <Dialog open={showBooking} onOpenChange={setShowBooking}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Book Consultation</DialogTitle>
+              <DialogDescription>
+                Schedule a consultation with {selectedLawyer?.fullname}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleBookConsultation} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Date</label>
+                  <Input
+                    type="date"
+                    value={bookingDate}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Time</label>
-                  <input type="time" className="w-full border rounded p-2" value={bookingTime} onChange={e => setBookingTime(e.target.value)} required />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Time</label>
+                  <Input
+                    type="time"
+                    value={bookingTime}
+                    onChange={(e) => setBookingTime(e.target.value)}
+                    required
+                  />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Method</label>
-                  <select className="w-full border rounded p-2" value={bookingMethod} onChange={e => setBookingMethod(e.target.value as 'video' | 'chat')} required>
-                    <option value="video">Video</option>
-                    <option value="chat">Chat</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Notes (optional)</label>
-                  <textarea className="w-full border rounded p-2" value={bookingNotes} onChange={e => setBookingNotes(e.target.value)} rows={2} />
-                </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={bookingLoading}>{bookingLoading ? 'Booking...' : 'Book Consultation'}</Button>
-                <Button type="button" className="w-full mt-2" variant="outline" onClick={() => setShowBooking(false)}>Cancel</Button>
-              </form>
-            </div>
-          </div>
-        )}
-        {showFeedback && selectedConsultation && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-bold mb-4">Leave Feedback</h2>
-              <form onSubmit={handleSubmitFeedback} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Rating</label>
-                  <select className="w-full border rounded p-2" value={feedbackRating} onChange={e => setFeedbackRating(Number(e.target.value))} required>
-                    {[5,4,3,2,1].map(r => <option key={r} value={r}>{r} Star{r > 1 ? 's' : ''}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Comments</label>
-                  <textarea className="w-full border rounded p-2" value={feedbackComments} onChange={e => setFeedbackComments(e.target.value)} rows={3} />
-                </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={feedbackLoading}>{feedbackLoading ? 'Submitting...' : 'Submit Feedback'}</Button>
-                <Button type="button" className="w-full mt-2" variant="outline" onClick={() => setShowFeedback(false)}>Cancel</Button>
-              </form>
-            </div>
-          </div>
-        )}
-        {showReschedule && selectedConsultation && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-bold mb-4">Reschedule Consultation</h2>
-              <form onSubmit={handleRescheduleConsultation} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">New Date</label>
-                  <input type="date" className="w-full border rounded p-2" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">New Time</label>
-                  <input type="time" className="w-full border rounded p-2" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} required />
-                </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={rescheduleLoading}>{rescheduleLoading ? 'Rescheduling...' : 'Reschedule'}</Button>
-                <Button type="button" className="w-full mt-2" variant="outline" onClick={() => { setShowReschedule(false); setRescheduleDate(''); setRescheduleTime(''); }}>Cancel</Button>
-              </form>
-            </div>
-          </div>
-        )}
-        {showLawyerProfile && profileLawyer && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-              <div className="flex flex-col items-center mb-4">
-                <Image src={profileLawyer.avatarUrl} alt={profileLawyer.fullName} width={80} height={80} className="w-20 h-20 rounded-full object-cover border mb-2" />
-                <h2 className="text-2xl font-bold mb-1">{profileLawyer.fullName}</h2>
-                <div className="text-gray-600 mb-2">{profileLawyer.specialty.join(', ')}</div>
-                <div className="text-sm text-gray-500 mb-2">Next available:</div>
-                <ul className="text-sm text-gray-700 mb-2">
-                  {profileLawyer.availability.map((slot, i) => (
-                    <li key={i}>{new Date(slot).toLocaleString()}</li>
-                  ))}
-                </ul>
               </div>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 mb-2" onClick={() => { setSelectedLawyer(profileLawyer); setShowBooking(true); setShowLawyerProfile(false); }}>Book Consultation</Button>
-              <Button className="w-full" variant="outline" onClick={() => setShowLawyerProfile(false)}>Close</Button>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Method</label>
+                <Select value={bookingMethod} onValueChange={setBookingMethod}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="video">
+                      <div className="flex items-center gap-2">
+                        <Video className="h-4 w-4" />
+                        Video Call
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="chat">
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Chat
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Notes (Optional)</label>
+                <Textarea
+                  placeholder="Describe your legal issue or questions..."
+                  value={bookingNotes}
+                  onChange={(e) => setBookingNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowBooking(false)}
+                  disabled={bookingLoading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={bookingLoading}>
+                  {bookingLoading ? 'Booking...' : 'Book Consultation'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Feedback Modal */}
+        <Dialog open={showFeedback} onOpenChange={setShowFeedback}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Leave Feedback</DialogTitle>
+              <DialogDescription>
+                Help us improve by sharing your experience
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmitFeedback} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Rating</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFeedbackRating(star)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        star <= feedbackRating
+                          ? 'text-yellow-500 bg-yellow-50'
+                          : 'text-gray-300 hover:text-yellow-400'
+                      }`}
+                    >
+                      <Star className="h-6 w-6 fill-current" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Comments</label>
+                <Textarea
+                  placeholder="Share your experience..."
+                  value={feedbackComments}
+                  onChange={(e) => setFeedbackComments(e.target.value)}
+                  rows={4}
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowFeedback(false)}
+                  disabled={feedbackLoading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={feedbackLoading}>
+                  {feedbackLoading ? 'Submitting...' : 'Submit Feedback'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reschedule Modal */}
+        <Dialog open={showReschedule} onOpenChange={setShowReschedule}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Reschedule Consultation</DialogTitle>
+              <DialogDescription>
+                Choose a new date and time for your consultation
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleRescheduleConsultation} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">New Date</label>
+                  <Input
+                    type="date"
+                    value={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">New Time</label>
+                  <Input
+                    type="time"
+                    value={rescheduleTime}
+                    onChange={(e) => setRescheduleTime(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowReschedule(false)
+                    setRescheduleDate('')
+                    setRescheduleTime('')
+                  }}
+                  disabled={rescheduleLoading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={rescheduleLoading}>
+                  {rescheduleLoading ? 'Rescheduling...' : 'Reschedule'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Lawyer Profile Modal */}
+        <Dialog open={showLawyerProfile} onOpenChange={setShowLawyerProfile}>
+          <DialogContent className="sm:max-w-[600px]">
+            <div className="flex flex-col items-center space-y-6">
+              <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                <AvatarImage src={profileLawyer?.avatarUrl} />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl">
+                  {profileLawyer?.fullname?.split(' ').map((n) => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-gray-900">{profileLawyer?.fullname}</h3>
+                <p className="text-gray-600 mt-1">
+                  {profileLawyer?.specialty?.join(', ')}
+                </p>
+                <div className="flex items-center justify-center gap-4 mt-3">
+                  <div className="flex items-center gap-1">
+                    <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                    <span className="font-medium">{profileLawyer?.performance_score}/5</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <TrendingUp className="h-4 w-4 text-green-500" />
+                    <span className="font-medium">{profileLawyer?.experience} years</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="w-full space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" />
+                      Availability
+                    </h4>
+                    <div className="rounded-lg bg-gray-50 p-4">
+                      {Array.isArray(profileLawyer?.availability) && profileLawyer.availability.length > 0 ? (
+                        <ul className="space-y-2 text-sm">
+                          {profileLawyer.availability.slice(0, 3).map((slot, i) => (
+                            <li key={i} className="flex items-center">
+                              <Clock4 className="mr-2 h-4 w-4 text-gray-400" />
+                              {new Date(slot).toLocaleString([], {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </li>
+                          ))}
+                          {profileLawyer.availability.length > 3 && (
+                            <li className="text-xs text-gray-500">
+                              +{profileLawyer.availability.length - 3} more slots available
+                            </li>
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          No availability slots
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <UserCheck className="h-4 w-4" />
+                      Verification
+                    </h4>
+                    <div className="space-y-2">
+                      {profileLawyer?.is_verified ? (
+                        <Badge variant="default" className="w-fit">
+                          <Award className="mr-1 h-3 w-3" />
+                          Verified Professional
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="w-fit">
+                          {profileLawyer?.verification_status || 'Pending Verification'}
+                        </Badge>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        All verified professionals have completed background checks and credential verification
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <MessageSquareText className="h-4 w-4" />
+                    Consultation Methods
+                  </h4>
+                  <div className="flex gap-3">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                      <VideoIcon className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Video Call</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
+                      <MessageSquare className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-800">Chat</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="w-full pt-4">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setSelectedLawyer(profileLawyer)
+                    setShowBooking(true)
+                    setShowLawyerProfile(false)
+                  }}
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Book Consultation
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </main>
-      {showToast && (
-        <div className="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-3 rounded shadow-lg z-50 animate-fade-in">
-          {toastMsg}
-          <button className="ml-4 text-white font-bold" onClick={() => setShowToast(false)}>&times;</button>
-        </div>
-      )}
-    </div>
-  )
-} 
+          </DialogContent>
+        </Dialog>
+
+        {/* Find Lawyer Dialog */}
+        <Dialog open={showFindLawyer} onOpenChange={setShowFindLawyer}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Available Lawyers</DialogTitle>
+              <DialogDescription>
+                Browse our network of qualified legal professionals
+              </DialogDescription>
+            </DialogHeader>
+            {loadingLawyers ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600" />
+                <p className="mt-4 text-gray-600">Loading lawyers...</p>
+              </div>
+            ) : lawyersError ? (
+              <div className="rounded-lg bg-red-50 p-4 text-red-600">
+                {lawyersError}
+              </div>
+            ) : lawyers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+                <Users className="h-10 w-10 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  No lawyers found
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Try adjusting your search criteria
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredLawyers.map((lawyer) => (
+                  <Card key={lawyer.id} className="overflow-hidden">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                            <AvatarImage src={lawyer.avatarUrl} />
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                              {lawyer.fullname?.split(' ').map((n) => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-gray-900">{lawyer.fullname}</h3>
+                              {lawyer.is_verified && (
+                                <Badge variant="default" className="text-xs">
+                                  <Award className="mr-1 h-3 w-3" />
+                                  Verified
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {lawyer.experience} years experience • {lawyer.specialty?.slice(0, 2).join(', ')}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                                <span>{lawyer.performance_score}/5</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {lawyer.is_available ? (
+                                  <>
+                                    <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                    <span>Available</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+                                    <span>Offline</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          disabled={!lawyer.is_available}
+                          onClick={() => {
+                            setSelectedLawyer(lawyer)
+                            setShowBooking(true)
+                            setShowFindLawyer(false)
+                          }}
+                        >
+                          <BookOpen className="h-4 w-4 mr-2" />
+                          Book
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppLayout>
+  );
+}

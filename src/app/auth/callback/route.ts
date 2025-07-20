@@ -33,9 +33,33 @@ export async function GET(request: NextRequest) {
       }
     )
     
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (!error && data.user) {
+      // Sync user to backend
+      try {
+        const BASE_URL = process.env.BASE_URL || 'http://localhost:5001'
+        const syncRes = await fetch(`${BASE_URL}/api/users/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            supabaseId: data.user.id,
+            email: data.user.email,
+            name: data.user.user_metadata?.full_name || ''
+          })
+        })
+        
+        if (!syncRes.ok) {
+          console.log('Failed to sync user to backend:', await syncRes.text())
+        } else {
+          console.log('User synced to backend successfully')
+        }
+      } catch (syncError) {
+        console.log('Error syncing user to backend:', syncError)
+      }
+    }
   }
 
   // URL to redirect to after sign in process completes
-  return NextResponse.redirect(new URL('/auth/onboarding', request.url))
+  return NextResponse.redirect(new URL('/dashboard', request.url))
 } 

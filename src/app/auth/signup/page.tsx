@@ -16,6 +16,8 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  const BASE_URL = process.env.BASE_URL || 'http://localhost:5001';
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -72,7 +74,7 @@ export default function SignUpPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -83,16 +85,48 @@ export default function SignUpPage() {
         }
       })
 
-      if (error) {
-        setError(error.message)
+      if (signUpError) {
+        console.log('signUpError', signUpError)
+        setError(signUpError.message)
       } else {
-        setSuccess('Registration successful! Please check your email for verification.')
-        // Redirect to verification page after a short delay
-        setTimeout(() => {
-          router.push(`/auth/verify?email=${encodeURIComponent(formData.email)}`)
-        }, 1000)
+        console.log('signUpData', signUpData)
+        
+        // Check if user was created (even if not confirmed)
+        if (signUpData.user) {
+          // Sync user to backend using the user data from signup response
+          const syncRes = await fetch(`${BASE_URL}/api/users/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              supabaseId: signUpData.user.id,
+              email: formData.email,
+              name: formData.fullName
+            })
+          })
+
+          console.log('sync response status:', syncRes.status)
+          if (!syncRes.ok) {
+            const errorText = await syncRes.text()
+            console.log('sync error:', errorText)
+            setError('Signup succeeded but failed to save user in database. Please contact support.')
+            setLoading(false)
+            return
+          }
+          
+          setSuccess('Registration successful! Please check your email for verification.')
+          // Redirect to verification page after a short delay
+          setTimeout(() => {
+            router.push(`/auth/verify?email=${encodeURIComponent(formData.email)}`)
+          }, 1000)
+        } else {
+          setError('Signup succeeded but no user data received. Please check your email for verification.')
+          setTimeout(() => {
+            router.push(`/auth/verify?email=${encodeURIComponent(formData.email)}`)
+          }, 1000)
+        }
       }
-    } catch {
+    } catch (error) {
+      console.log('catch error:', error)
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
@@ -113,8 +147,14 @@ export default function SignUpPage() {
 
       if (error) {
         setError(error.message)
+      } else {
+        // For OAuth, we need to handle the user sync in the callback
+        // The user will be redirected to the callback page after OAuth
+        setSuccess('Redirecting to Google...')
+        // The actual user sync will happen in the callback route
       }
-    } catch {
+    } catch (error) {
+      console.log('Google signup error:', error)
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)

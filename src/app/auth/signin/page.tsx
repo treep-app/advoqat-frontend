@@ -65,11 +65,29 @@ export default function SignInPage() {
         setError(error.message)
       } else {
         setSuccess('Sign in successful! Redirecting...')
-        console.log('Sign in successful, redirecting to dashboard...')
-        
-        // Wait a moment for the session to be established
+        // Wait for the session to be established
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        if (userError || !userData.user) {
+          setError('Sign in succeeded but could not fetch user info. Please try again.')
+          setLoading(false)
+          return
+        }
+        // Sync user to backend
+        const syncRes = await fetch('http://localhost:5001/api/users/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            supabaseId: userData.user.id,
+            email: userData.user.email,
+            name: userData.user.user_metadata?.full_name || ''
+          })
+        })
+        if (!syncRes.ok) {
+          setError('Sign in succeeded but failed to save user in database. Please contact support.')
+          setLoading(false)
+          return
+        }
         setTimeout(() => {
-          console.log('Redirecting to dashboard...')
           window.location.href = '/dashboard'
         }, 1000)
       }
@@ -94,6 +112,30 @@ export default function SignInPage() {
 
       if (error) {
         setError(error.message)
+      } else {
+        // Wait for the user to be signed in (may need to handle in callback in production)
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        if (userError || !userData.user) {
+          setError('Google sign in succeeded but could not fetch user info. Please try again.')
+          setLoading(false)
+          return
+        }
+        // Sync user to backend
+        const syncRes = await fetch('http://localhost:5001/api/users/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            supabaseId: userData.user.id,
+            email: userData.user.email,
+            name: userData.user.user_metadata?.full_name || ''
+          })
+        })
+        if (!syncRes.ok) {
+          setError('Google sign in succeeded but failed to save user in database. Please contact support.')
+          setLoading(false)
+          return
+        }
+        window.location.href = '/dashboard'
       }
     } catch {
       setError('An unexpected error occurred. Please try again.')

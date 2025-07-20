@@ -163,11 +163,17 @@ export default function Home() {
                 <>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700" asChild>
                     <Link href="/auth/signup">
-                      Start Free Trial
+                      Sign Up as a User
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Link>
                   </Button>
-                  <Button variant="outline" size="lg">
+                  <Button size="lg" variant="outline" asChild>
+                    <Link href="/freelancer/register">
+                      Sign Up as a Lawyer
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="lg">
                     Watch Demo
                   </Button>
                 </>

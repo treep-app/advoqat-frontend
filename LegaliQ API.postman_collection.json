@@ -1,0 +1,674 @@
+{
+	"info": {
+		"_postman_id": "4baa53dc-69d9-4dd4-bb8e-8d844ad2ade6",
+		"name": "LegaliQ API",
+		"description": "Postman collection for all freelancer, case management, document annotation, and payment endpoints in LegaliQ backend.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2252846"
+	},
+	"item": [
+		{
+			"name": "freelancer",
+			"item": [
+				{
+					"name": "Register Freelancer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"1234567890\",\n  \"experience\": 5,\n  \"expertiseAreas\": [\"Consumer\", \"Tenancy\"],\n  \"idCardUrl\": \"https://example.com/id.jpg\",\n  \"barCertificateUrl\": \"https://example.com/bar.jpg\",\n  \"additionalDocuments\": [\"https://example.com/doc1.pdf\"],\n  \"userId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/register",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Freelancers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseURL}}/api/freelancers",
+									"host": [
+										"{{baseURL}}"
+									],
+									"path": [
+										"api",
+										"freelancers"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "X-Powered-By",
+									"value": "Express"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "1153"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"481-q3aCmzeEzhMcEu2dW6/dsM8mQes\""
+								},
+								{
+									"key": "Date",
+									"value": "Fri, 18 Jul 2025 06:35:08 GMT"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Keep-Alive",
+									"value": "timeout=5"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": 1,\n        \"user_id\": 1,\n        \"name\": \"Jane Smith\",\n        \"email\": \"jane.smith@example.com\",\n        \"phone\": \"9876543210\",\n        \"experience\": 8,\n        \"expertise_areas\": [\n            \"Consumer Law\",\n            \"Contract Law\"\n        ],\n        \"id_card_url\": \"https://storage.example.com/id-12345.pdf\",\n        \"bar_certificate_url\": \"https://storage.example.com/bar-12345.pdf\",\n        \"additional_documents\": [\n            \"https://storage.example.com/resume-jane.pdf\"\n        ],\n        \"is_verified\": false,\n        \"verification_status\": \"pending\",\n        \"verification_notes\": null,\n        \"is_available\": false,\n        \"performance_score\": \"0\",\n        \"total_earnings\": \"0\",\n        \"created_at\": \"2025-07-17T13:02:11.014Z\",\n        \"updated_at\": \"2025-07-17T13:02:11.014Z\"\n    },\n    {\n        \"id\": 3,\n        \"user_id\": 1,\n        \"name\": \"Kevin Janvier\",\n        \"email\": \"kevin@gmail.com\",\n        \"phone\": \"9876543210\",\n        \"experience\": 8,\n        \"expertise_areas\": [\n            \"Consumer Law\",\n            \"Contract Law\"\n        ],\n        \"id_card_url\": \"https://storage.example.com/id-12345.pdf\",\n        \"bar_certificate_url\": \"https://storage.example.com/bar-12345.pdf\",\n        \"additional_documents\": [\n            \"https://storage.example.com/resume-jane.pdf\"\n        ],\n        \"is_verified\": false,\n        \"verification_status\": \"pending\",\n        \"verification_notes\": null,\n        \"is_available\": false,\n        \"performance_score\": \"0\",\n        \"total_earnings\": \"0\",\n        \"created_at\": \"2025-07-17T16:25:15.790Z\",\n        \"updated_at\": \"2025-07-17T16:25:15.790Z\"\n    }\n]"
+						}
+					]
+				},
+				{
+					"name": "Get Freelancer By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/1",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"1"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseURL}}/api/freelancers/1",
+									"host": [
+										"{{baseURL}}"
+									],
+									"path": [
+										"api",
+										"freelancers",
+										"1"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "X-Powered-By",
+									"value": "Express"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "1153"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"481-66I/dQ98dNPGxML+niJlabH1aIM\""
+								},
+								{
+									"key": "Date",
+									"value": "Fri, 18 Jul 2025 06:35:28 GMT"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Keep-Alive",
+									"value": "timeout=5"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": 3,\n        \"user_id\": 1,\n        \"name\": \"Kevin Janvier\",\n        \"email\": \"kevin@gmail.com\",\n        \"phone\": \"9876543210\",\n        \"experience\": 8,\n        \"expertise_areas\": [\n            \"Consumer Law\",\n            \"Contract Law\"\n        ],\n        \"id_card_url\": \"https://storage.example.com/id-12345.pdf\",\n        \"bar_certificate_url\": \"https://storage.example.com/bar-12345.pdf\",\n        \"additional_documents\": [\n            \"https://storage.example.com/resume-jane.pdf\"\n        ],\n        \"is_verified\": false,\n        \"verification_status\": \"pending\",\n        \"verification_notes\": null,\n        \"is_available\": false,\n        \"performance_score\": \"0\",\n        \"total_earnings\": \"0\",\n        \"created_at\": \"2025-07-17T16:25:15.790Z\",\n        \"updated_at\": \"2025-07-17T16:25:15.790Z\"\n    },\n    {\n        \"id\": 1,\n        \"user_id\": 1,\n        \"name\": \"Jane Smith\",\n        \"email\": \"jane.smith@example.com\",\n        \"phone\": \"9876543210\",\n        \"experience\": 8,\n        \"expertise_areas\": [\n            \"Consumer Law\",\n            \"Contract Law\"\n        ],\n        \"id_card_url\": \"https://storage.example.com/id-12345.pdf\",\n        \"bar_certificate_url\": \"https://storage.example.com/bar-12345.pdf\",\n        \"additional_documents\": [\n            \"https://storage.example.com/resume-jane.pdf\"\n        ],\n        \"is_verified\": false,\n        \"verification_status\": \"pending\",\n        \"verification_notes\": null,\n        \"is_available\": false,\n        \"performance_score\": \"0\",\n        \"total_earnings\": \"0\",\n        \"created_at\": \"2025-07-17T13:02:11.014Z\",\n        \"updated_at\": \"2025-07-17T13:02:11.014Z\"\n    }\n]"
+						}
+					]
+				},
+				{
+					"name": "Delete Freelancer",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/:userId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Freelancer Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Jane Doe\",\n  \"phone\": \"9876543210\",\n  \"experience\": 7,\n  \"expertiseAreas\": [\"Corporate\", \"Family\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/update/:userId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"update",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Set Freelancer Availability",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isAvailable\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/availability/:userId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"availability",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Freelancer Earnings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/earnings/:userId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"earnings",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Freelancer Ratings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/ratings/1",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"ratings",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Accept Case",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/cases/:caseId/accept",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"cases",
+								":caseId",
+								"accept"
+							],
+							"variable": [
+								{
+									"key": "caseId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Complete Case",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/cases/:caseId/complete",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"cases",
+								":caseId",
+								"complete"
+							],
+							"variable": [
+								{
+									"key": "caseId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Decline Case",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/cases/:caseId/decline",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"cases",
+								":caseId",
+								"decline"
+							],
+							"variable": [
+								{
+									"key": "caseId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Annotate Case Document",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"annotatedDocumentUrl\": \"https://example.com/annotated.pdf\",\n  \"notes\": \"Reviewed and annotated.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/cases/:caseId/annotate",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"cases",
+								":caseId",
+								"annotate"
+							],
+							"variable": [
+								{
+									"key": "caseId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Request Withdrawal",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": 100.00,\n  \"method\": \"stripe\"\n}"
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/withdraw/:userId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"withdraw",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Freelancer Credentials",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idCardUrl\": \"https://example.com/newid.jpg\",\n  \"barCertificateUrl\": \"https://example.com/newbar.jpg\",\n  \"additionalDocuments\": [\"https://example.com/newdoc1.pdf\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/credentials/1",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"credentials",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Freelancer Cases",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/freelancers/cases/:userId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"freelancers",
+								"cases",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "cases",
+			"item": [
+				{
+					"name": "register cases",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"clientId\": 5,\n  \"title\": \"Review Lease Agreement\",\n  \"description\": \"Please review the attached lease agreement.\",\n  \"caseSummaryUrl\": \"https://example.com/lease.pdf\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/cases",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"cases"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Client Case Viewing",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"clientId\": 123,\n  \"title\": \"Review Lease Agreement\",\n  \"description\": \"Please review the attached lease agreement.\",\n  \"caseSummaryUrl\": \"https://example.com/lease.pdf\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/cases/client/:clientId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"cases",
+								"client",
+								":clientId"
+							],
+							"variable": [
+								{
+									"key": "clientId",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Admin/Manual Assignment Endpoint",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"freelancerId\": 456 }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/cases/assign/:caseId",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"cases",
+								"assign",
+								":caseId"
+							],
+							"variable": [
+								{
+									"key": "caseId",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "users",
+			"item": [
+				{
+					"name": "New Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"supabaseId\": \"f1e2d3c4-b5a6-7890-1234-56789abcdef0\",\n  \"email\": \"user@example.com\",\n  \"name\": \"User Name\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/users/sync",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"sync"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseURL",
+			"value": "http://localhost:3000",
+			"type": "default"
+		}
+	]
+}

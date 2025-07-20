@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
@@ -42,7 +42,8 @@ import {
   CalendarDays,
   Clock4,
   VideoIcon,
-  MessageSquareText
+  MessageSquareText,
+  RefreshCw
 } from 'lucide-react'
 import { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -50,7 +51,9 @@ import { User as SupabaseUser } from '@supabase/supabase-js'
 interface Lawyer {
   id: string | number
   fullname: string
-  specialty: string[]
+  name?: string // Alternative name field
+  specialty?: string[]
+  expertise_areas?: string[] // New field for expertise areas
   email?: string
   phone?: string
   experience?: number
@@ -74,10 +77,23 @@ interface Consultation {
   notes?: string
 }
 
+interface ConsultationApiResponse {
+  id: string | number
+  lawyerName?: string
+  datetime?: string
+  scheduled_at?: string
+  method?: string
+  status?: string
+  roomUrl?: string
+  room_url?: string
+  notes?: string
+  freelancer_name?: string
+}
+
 export default function LegalConsultations() {
   const router = useRouter()
   const { toast } = useToastContext()
-  const [tab, setTab] = useState('find')
+  const [tab, setTab] = useState('my') // Changed default to 'my' to show consultations first
   const [lawyerSearch, setLawyerSearch] = useState('')
   const [showBooking, setShowBooking] = useState(false)
   const [selectedLawyer, setSelectedLawyer] = useState<Lawyer | null>(null)
@@ -109,6 +125,8 @@ export default function LegalConsultations() {
   const [bookingLoading, setBookingLoading] = useState(false)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [rescheduleLoading, setRescheduleLoading] = useState(false)
+  const hasFetchedConsultations = useRef(false)
+  const userRef = useRef<SupabaseUser | null>(null)
 
   // Remove BASE_URL since we're using API_ENDPOINTS
 
@@ -121,6 +139,7 @@ export default function LegalConsultations() {
         return
       }
       setUser(data.user)
+      userRef.current = data.user
     }
     getUser()
   }, [router])
@@ -139,20 +158,69 @@ export default function LegalConsultations() {
   }, [])
 
   // Fetch consultations
-  const fetchConsultations = () => {
-    if (!user) return
+  const fetchConsultations = useCallback(async () => {
+    const currentUser = userRef.current
+    if (!currentUser) {
+      console.log('No current user, skipping consultation fetch')
+      return
+    }
+    
     setLoadingConsultations(true)
     setConsultationsError(null)
-    fetch(`${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${user.id}`)
-      .then(res => res.json())
-      .then(data => {
-        setConsultations(Array.isArray(data) ? data : [])
-      })
-      .catch(() => setConsultationsError('Failed to load consultations.'))
-      .finally(() => setLoadingConsultations(false))
-  }
+    
+    try {
+      const url = `${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${currentUser.id}`
+      console.log('Fetching consultations from URL:', url)
+      console.log('Fetching consultations for user:', currentUser.id)
+      
+      const response = await fetch(url)
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('Consultations API response:', data)
+      console.log('Response type:', typeof data)
+      console.log('Is array:', Array.isArray(data))
+      
+      // Ensure data is an array and process each consultation
+      const processedConsultations = Array.isArray(data) ? data
+        .map((consultation: ConsultationApiResponse) => {
+          console.log('Processing consultation:', consultation)
+          return {
+            id: consultation.id,
+            lawyerName: consultation.lawyerName || consultation.freelancer_name || 'Unknown Lawyer',
+            datetime: consultation.datetime || consultation.scheduled_at || new Date().toISOString(),
+            method: consultation.method || 'video',
+            status: consultation.status || 'pending',
+            roomUrl: consultation.roomUrl || consultation.room_url,
+            notes: consultation.notes || ''
+          }
+        })
+        .filter(consultation => {
+          const isValid = consultation.id && consultation.lawyerName
+          console.log('Consultation valid:', isValid, consultation)
+          return isValid
+        }) : []
+      
+      console.log('Processed consultations:', processedConsultations)
+      setConsultations(processedConsultations)
+    } catch (error) {
+      console.error('Error fetching consultations:', error)
+      setConsultationsError(error instanceof Error ? error.message : 'Failed to load consultations.')
+    } finally {
+      setLoadingConsultations(false)
+    }
+  }, [])
+
   useEffect(() => {
-    if (user) fetchConsultations()
+    if (user && !hasFetchedConsultations.current) {
+      hasFetchedConsultations.current = true
+      fetchConsultations()
+    }
   }, [user, fetchConsultations])
 
   // Book consultation
@@ -183,6 +251,7 @@ export default function LegalConsultations() {
         description: 'Your consultation has been successfully scheduled.',
         variant: 'success'
       })
+      hasFetchedConsultations.current = false
       fetchConsultations()
     } catch {
       toast({
@@ -220,6 +289,7 @@ export default function LegalConsultations() {
         variant: 'success'
       })
       console.log('Feedback submitted + reschedule')
+      hasFetchedConsultations.current = false
       fetchConsultations()
     } catch {
       console.log('Feedback failed')
@@ -255,9 +325,10 @@ export default function LegalConsultations() {
       setRescheduleTime('')
       toast({
         title: 'Consultation Rescheduled',
-        description: 'Your consultation has been successfully rescheduled.',
+        description: 'Your consultation has been rescheduled.',
         variant: 'success'
       })
+      hasFetchedConsultations.current = false
       fetchConsultations()
     } catch {
       toast({
@@ -284,6 +355,7 @@ export default function LegalConsultations() {
         description: 'Your consultation has been cancelled.',
         variant: 'success'
       })
+      hasFetchedConsultations.current = false
       fetchConsultations()
     } catch {
       toast({
@@ -319,7 +391,110 @@ export default function LegalConsultations() {
   }
 
   const getMethodIcon = (method: string) => {
-    return method === 'video' ? <Video className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />
+    switch (method.toLowerCase()) {
+      case 'video': return <Video className="h-4 w-4" />
+      case 'phone': return <MessageCircle className="h-4 w-4" />
+      case 'chat': return <MessageSquare className="h-4 w-4" />
+      default: return <Calendar className="h-4 w-4" />
+    }
+  }
+
+  // Helper function to get lawyer expertise areas
+  const getLawyerExpertise = (lawyer: Lawyer) => {
+    return lawyer.expertise_areas || lawyer.specialty || []
+  }
+
+  // Helper function to get lawyer name
+  const getLawyerName = (lawyer: Lawyer) => {
+    return lawyer.fullname || lawyer.name || 'Legal Professional'
+  }
+
+  // Helper function to get verification status display
+  const getVerificationDisplay = (lawyer: Lawyer) => {
+    if (lawyer.is_verified) {
+      return {
+        text: 'Verified',
+        icon: <CheckCircle className="mr-1 h-3 w-3" />,
+        className: 'bg-green-100 text-green-800 border-green-200'
+      }
+    }
+    
+    if (lawyer.verification_status) {
+      const statusConfig = {
+        pending: {
+          icon: <Clock className="mr-1 h-3 w-3" />,
+          className: 'border-yellow-200 text-yellow-700 bg-yellow-50'
+        },
+        rejected: {
+          icon: <XCircle className="mr-1 h-3 w-3" />,
+          className: 'border-red-200 text-red-700 bg-red-50'
+        },
+        approved: {
+          icon: <CheckCircle className="mr-1 h-3 w-3" />,
+          className: 'border-green-200 text-green-700 bg-green-50'
+        }
+      }
+      
+      const config = statusConfig[lawyer.verification_status as keyof typeof statusConfig] || {
+        icon: <AlertCircle className="mr-1 h-3 w-3" />,
+        className: 'border-gray-200 text-gray-700 bg-gray-50'
+      }
+      
+      return {
+        text: lawyer.verification_status,
+        icon: config.icon,
+        className: config.className
+      }
+    }
+    
+    return {
+      text: 'Not Verified',
+      icon: <AlertCircle className="mr-1 h-3 w-3" />,
+      className: 'border-gray-200 text-gray-700 bg-gray-50'
+    }
+  }
+
+  // Helper function to get consultation room URL for a lawyer
+  const getConsultationRoomUrl = async (lawyerId: string | number) => {
+    const currentUser = userRef.current
+    if (!currentUser) return null
+    
+    try {
+      const response = await fetch(`${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${currentUser.id}`)
+      const consultations = await response.json()
+      
+      // Find the most recent active consultation with this lawyer
+      const consultation = consultations.find((c: Consultation) => 
+        c.lawyerName === lawyers.find(l => l.id === lawyerId)?.fullname && 
+        c.status === 'confirmed' && 
+        c.roomUrl
+      )
+      
+      return consultation?.roomUrl || null
+    } catch (error) {
+      console.error('Error fetching consultation room URL:', error)
+      return null
+    }
+  }
+
+  // Helper function to check if user has active consultation with lawyer
+  const hasActiveConsultation = async (lawyerId: string | number) => {
+    const currentUser = userRef.current
+    if (!currentUser) return false
+    
+    try {
+      const response = await fetch(`${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${currentUser.id}`)
+      const consultations = await response.json()
+      
+      const lawyerName = lawyers.find(l => l.id === lawyerId)?.fullname
+      return consultations.some((c: Consultation) => 
+        c.lawyerName === lawyerName && 
+        c.status === 'confirmed'
+      )
+    } catch (error) {
+      console.error('Error checking active consultation:', error)
+      return false
+    }
   }
 
   const filteredLawyers = lawyers.filter((lawyer) =>
@@ -459,69 +634,85 @@ export default function LegalConsultations() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredLawyers.map((lawyer) => (
-                  <Card key={lawyer.id} className="group hover:shadow-lg transition-all duration-200 overflow-hidden">
+                  <Card key={lawyer.id} className="group hover:shadow-lg transition-all duration-200 overflow-hidden border-0 bg-white/80 backdrop-blur-sm">
                     <CardHeader className="pb-4">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                             <AvatarImage src={lawyer.avatarUrl} />
-                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                              {lawyer.fullname?.split(' ').map((n) => n[0]).join('')}
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                              {getLawyerName(lawyer).split(' ').map((n) => n[0]).join('').slice(0, 2)}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 truncate">{lawyer.fullname}</h3>
-                            <p className="text-sm text-gray-600">{lawyer.experience} years experience</p>
+                            <h3 className="font-semibold text-gray-900 truncate text-lg">
+                              {getLawyerName(lawyer)}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {lawyer.experience ? `${lawyer.experience} years experience` : 'Experienced professional'}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {lawyer.is_verified ? (
-                            <Badge variant="default" className="text-xs">
-                              <Award className="mr-1 h-3 w-3" />
-                              Verified
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs">
-                              {lawyer.verification_status || 'Pending'}
-                            </Badge>
-                          )}
+                        <div className="flex flex-col items-end gap-2">
+                          {/* Verification Status */}
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const verification = getVerificationDisplay(lawyer)
+                              return (
+                                <Badge variant="outline" className={`text-xs ${verification.className}`}>
+                                  {verification.icon}
+                                  {verification.text}
+                                </Badge>
+                              )
+                            })()}
+                          </div>
+                          
+                          {/* Rating */}
                           <div className="flex items-center gap-1">
                             <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
                             <span className="text-xs font-medium">
-                              {lawyer.performance_score}/5
+                              {lawyer.performance_score || 'N/A'}/5
                             </span>
                           </div>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {/* Expertise Areas */}
                       <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-gray-700">Specialties</h4>
+                        <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                          <Award className="h-4 w-4 text-blue-600" />
+                          Expertise Areas
+                        </h4>
                         <div className="flex flex-wrap gap-1">
-                          {lawyer.specialty?.slice(0, 3).map((area) => (
-                            <Badge key={area} variant="secondary" className="text-xs">
+                          {getLawyerExpertise(lawyer).slice(0, 3).map((area, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                               {area}
                             </Badge>
                           ))}
-                          {lawyer.specialty && lawyer.specialty.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{lawyer.specialty.length - 3} more
+                          {getLawyerExpertise(lawyer).length > 3 && (
+                            <Badge variant="outline" className="text-xs text-gray-600">
+                              +{getLawyerExpertise(lawyer).length - 3} more
                             </Badge>
+                          )}
+                          {getLawyerExpertise(lawyer).length === 0 && (
+                            <span className="text-xs text-gray-500 italic">No expertise areas listed</span>
                           )}
                         </div>
                       </div>
                       
-                      <div className="flex items-center justify-between pt-2">
+                      {/* Availability Status */}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                         <div className="flex items-center gap-2">
                           {lawyer.is_available ? (
                             <div className="flex items-center gap-1 text-green-600">
-                              <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                              <span className="text-xs font-medium">Available</span>
+                              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                              <span className="text-xs font-medium">Available Now</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 text-gray-500">
                               <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-                              <span className="text-xs font-medium">Offline</span>
+                              <span className="text-xs font-medium">Currently Offline</span>
                             </div>
                           )}
                         </div>
@@ -533,6 +724,7 @@ export default function LegalConsultations() {
                               setProfileLawyer(lawyer)
                               setShowLawyerProfile(true)
                             }}
+                            className="text-gray-600 hover:text-gray-900"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -543,6 +735,7 @@ export default function LegalConsultations() {
                               setSelectedLawyer(lawyer)
                               setShowBooking(true)
                             }}
+                            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                           >
                             <BookOpen className="h-4 w-4 mr-1" />
                             Book
@@ -560,13 +753,30 @@ export default function LegalConsultations() {
           <TabsContent value="my" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  My Consultations
-                </CardTitle>
-                <CardDescription>
-                  Manage your scheduled and completed legal consultations
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      My Consultations
+                    </CardTitle>
+                    <CardDescription>
+                      Manage your scheduled and completed legal consultations
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      hasFetchedConsultations.current = false
+                      fetchConsultations()
+                    }}
+                    disabled={loadingConsultations}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${loadingConsultations ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingConsultations ? (
@@ -600,14 +810,50 @@ export default function LegalConsultations() {
                       <Plus className="h-4 w-4 mr-2" />
                       Find a Lawyer
                     </Button>
+                    
+                    {/* Debug information */}
+                    <div className="mt-4 p-4 bg-gray-100 rounded-lg text-xs max-w-md">
+                      <p className="font-semibold mb-2">Debug Info:</p>
+                      <p>User ID: {user?.id || 'Not loaded'}</p>
+                      <p>Consultations loaded: {consultations.length}</p>
+                      <p>Loading state: {loadingConsultations ? 'true' : 'false'}</p>
+                      <p>Error state: {consultationsError || 'none'}</p>
+                      <p>Has fetched: {hasFetchedConsultations.current ? 'true' : 'false'}</p>
+                      <p>User ref: {userRef.current?.id || 'Not set'}</p>
+                      {consultations.length > 0 && (
+                        <div className="mt-2">
+                          <p className="font-semibold">Raw Data:</p>
+                          <pre className="text-xs overflow-auto max-h-32">
+                            {JSON.stringify(consultations, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Debug info for consultations */}
+                    {/* <div className="p-4 bg-blue-50 rounded-lg text-xs">
+                      <p className="font-semibold mb-2">Consultations Debug:</p>
+                      <p>Total consultations: {consultations.length}</p>
+                      <p>First consultation: {consultations[0] ? JSON.stringify(consultations[0]) : 'None'}</p>
+                    </div> */}
+                    
                     {consultations.map((consultation) => {
                       const isConfirmed = consultation.status === 'confirmed'
                       const isCompleted = consultation.status === 'completed'
                       const isCancelled = consultation.status === 'cancelled'
-                      const datetime = new Date(consultation.datetime)
+                      
+                      // Safe date parsing with fallback
+                      let datetime: Date
+                      try {
+                        datetime = new Date(consultation.datetime)
+                        if (isNaN(datetime.getTime())) {
+                          datetime = new Date()
+                        }
+                      } catch {
+                        datetime = new Date()
+                      }
                       
                       return (
                         <Card key={consultation.id} className="overflow-hidden">
@@ -616,7 +862,7 @@ export default function LegalConsultations() {
                               <div className="flex items-start gap-4">
                                 <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                                   <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                                    {consultation.lawyerName?.split(' ').map((n) => n[0]).join('')}
+                                    {consultation.lawyerName?.split(' ').map((n) => n[0]).join('') || 'LA'}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
@@ -908,18 +1154,18 @@ export default function LegalConsultations() {
                 </AvatarFallback>
               </Avatar>
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-gray-900">{profileLawyer?.fullname}</h3>
+                <h3 className="text-2xl font-bold text-gray-900">{profileLawyer ? getLawyerName(profileLawyer) : 'Legal Professional'}</h3>
                 <p className="text-gray-600 mt-1">
-                  {profileLawyer?.specialty?.join(', ')}
+                  {profileLawyer ? getLawyerExpertise(profileLawyer).join(', ') : 'Specialized in legal matters'}
                 </p>
                 <div className="flex items-center justify-center gap-4 mt-3">
                   <div className="flex items-center gap-1">
                     <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                    <span className="font-medium">{profileLawyer?.performance_score}/5</span>
+                    <span className="font-medium">{profileLawyer?.performance_score || 'N/A'}/5</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <TrendingUp className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">{profileLawyer?.experience} years</span>
+                    <span className="font-medium">{profileLawyer?.experience || 'Experienced'} years</span>
                   </div>
                 </div>
               </div>
@@ -960,42 +1206,284 @@ export default function LegalConsultations() {
                     </div>
                   </div>
                   
+                  {/* Active Consultations Section */}
                   <div className="space-y-3">
                     <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <UserCheck className="h-4 w-4" />
-                      Verification
+                      <MessageSquare className="h-4 w-4" />
+                      Active Consultations
                     </h4>
-                    <div className="space-y-2">
-                      {profileLawyer?.is_verified ? (
-                        <Badge variant="default" className="w-fit">
-                          <Award className="mr-1 h-3 w-3" />
-                          Verified Professional
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="w-fit">
-                          {profileLawyer?.verification_status || 'Pending Verification'}
-                        </Badge>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        All verified professionals have completed background checks and credential verification
-                      </p>
+                    <div className="rounded-lg bg-blue-50 p-4">
+                      {(() => {
+                        const activeConsultations = consultations.filter(c => 
+                          c.lawyerName === (profileLawyer ? getLawyerName(profileLawyer) : '') && 
+                          c.status === 'confirmed'
+                        )
+                        
+                        if (activeConsultations.length > 0) {
+                          return (
+                            <div className="space-y-2">
+                              {activeConsultations.map((consultation, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                      {getMethodIcon(consultation.method)}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {new Date(consultation.datetime).toLocaleDateString()}
+                                      </p>
+                                      <p className="text-xs text-gray-600">
+                                        {new Date(consultation.datetime).toLocaleTimeString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {consultation.roomUrl && consultation.method === 'video' && (
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        onClick={() => window.open(consultation.roomUrl, '_blank')}
+                                        className="text-blue-600 hover:text-blue-700"
+                                      >
+                                        <VideoIcon className="h-3 w-3 mr-1" />
+                                        Join
+                                      </Button>
+                                    )}
+                                    {consultation.method === 'chat' && (
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        onClick={() => window.open(`/dashboard/ai-assistant?consultation=${consultation.id}`, '_blank')}
+                                        className="text-green-600 hover:text-green-700"
+                                      >
+                                        <MessageSquare className="h-3 w-3 mr-1" />
+                                        Chat
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        } else {
+                          return (
+                            <p className="text-sm text-gray-500">
+                              No active consultations with this lawyer
+                            </p>
+                          )
+                        }
+                      })()}
                     </div>
                   </div>
                 </div>
                 
                 <div className="space-y-3">
                   <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <MessageSquareText className="h-4 w-4" />
-                    Consultation Methods
+                    <UserCheck className="h-4 w-4" />
+                    Verification
                   </h4>
-                  <div className="flex gap-3">
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
-                      <VideoIcon className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">Video Call</span>
+                  <div className="space-y-2">
+                    {profileLawyer?.is_verified ? (
+                      <Badge variant="default" className="w-fit">
+                        <Award className="mr-1 h-3 w-3" />
+                        Verified Professional
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="w-fit">
+                        {profileLawyer?.verification_status || 'Pending Verification'}
+                      </Badge>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      All verified professionals have completed background checks and credential verification
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Award className="h-4 w-4" />
+                    Expertise Areas
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {profileLawyer ? getLawyerExpertise(profileLawyer).map((area, index) => (
+                      <Badge key={index} variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                        {area}
+                      </Badge>
+                    )) : (
+                      <span className="text-sm text-gray-500 italic">No expertise areas listed</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <MessageSquareText className="h-4 w-4" />
+                    Communication Options
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Video Call Option */}
+                    <div className="group cursor-pointer p-4 rounded-lg border-2 border-blue-200 bg-blue-50 hover:border-blue-300 hover:bg-blue-100 transition-all duration-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-600 rounded-lg">
+                            <VideoIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <h5 className="font-semibold text-blue-900">Video Call</h5>
+                            <p className="text-xs text-blue-700">Face-to-face consultation</p>
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={async () => {
+                            if (!profileLawyer?.id) {
+                              toast({
+                                title: 'Error',
+                                description: 'Lawyer information not available.',
+                                variant: 'destructive'
+                              })
+                              return
+                            }
+                            
+                            const hasActive = await hasActiveConsultation(profileLawyer.id)
+                            if (!hasActive) {
+                              toast({
+                                title: 'No Active Consultation',
+                                description: 'Please book a consultation first to access video call.',
+                                variant: 'destructive'
+                              })
+                              return
+                            }
+                            
+                            const roomUrl = await getConsultationRoomUrl(profileLawyer.id)
+                            if (roomUrl) {
+                              try {
+                                window.open(roomUrl, '_blank')
+                                toast({
+                                  title: 'Video Call Started',
+                                  description: 'Opening video call in new tab...',
+                                  variant: 'success'
+                                })
+                              } catch {
+                                toast({
+                                  title: 'Error',
+                                  description: 'Could not open video call. Please try again.',
+                                  variant: 'destructive'
+                                })
+                              }
+                            } else {
+                              toast({
+                                title: 'No Room URL',
+                                description: 'Could not find a video call room URL for this consultation.',
+                                variant: 'destructive'
+                              })
+                            }
+                          }}
+                        >
+                          Join Call
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-                      <MessageSquare className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-800">Chat</span>
+
+                    {/* Chat Option */}
+                    <div className="group cursor-pointer p-4 rounded-lg border-2 border-green-200 bg-green-50 hover:border-green-300 hover:bg-green-100 transition-all duration-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-green-600 rounded-lg">
+                            <MessageSquare className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <h5 className="font-semibold text-green-900">Live Chat</h5>
+                            <p className="text-xs text-green-700">Real-time messaging</p>
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          onClick={async () => {
+                            if (!profileLawyer?.id) {
+                              toast({
+                                title: 'Error',
+                                description: 'Lawyer information not available.',
+                                variant: 'destructive'
+                              })
+                              return
+                            }
+                            
+                            const hasActive = await hasActiveConsultation(profileLawyer.id)
+                            if (!hasActive) {
+                              toast({
+                                title: 'No Active Consultation',
+                                description: 'Please book a consultation first to access chat.',
+                                variant: 'destructive'
+                              })
+                              return
+                            }
+                            
+                            // Generate or get chat link
+                            const chatLink = `/dashboard/ai-assistant?lawyer=${profileLawyer.id}&consultation=true`
+                            try {
+                              window.open(chatLink, '_blank')
+                              toast({
+                                title: 'Chat Started',
+                                description: 'Opening chat interface in new tab...',
+                                variant: 'success'
+                              })
+                            } catch {
+                              toast({
+                                title: 'Error',
+                                description: 'Could not open chat. Please try again.',
+                                variant: 'destructive'
+                              })
+                            }
+                          }}
+                        >
+                          Start Chat
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Direct Communication Links */}
+                  <div className="space-y-2">
+                    <h5 className="text-sm font-medium text-gray-700">Direct Contact</h5>
+                    <div className="flex flex-wrap gap-2">
+                      {profileLawyer?.email && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => window.open(`mailto:${profileLawyer.email}`, '_blank')}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <MessageCircle className="h-4 w-4 mr-1" />
+                          Email
+                        </Button>
+                      )}
+                      {profileLawyer?.phone && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => window.open(`tel:${profileLawyer.phone}`, '_blank')}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <MessageCircle className="h-4 w-4 mr-1" />
+                          Call
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const whatsappLink = `https://wa.me/${profileLawyer?.phone?.replace(/\D/g, '')}?text=Hi ${profileLawyer?.fullname}, I'd like to discuss a legal matter.`
+                          window.open(whatsappLink, '_blank')
+                        }}
+                        className="text-green-600 hover:text-green-700"
+                        disabled={!profileLawyer?.phone}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                        WhatsApp
+                      </Button>
                     </div>
                   </div>
                 </div>

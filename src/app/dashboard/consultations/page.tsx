@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
+import StripeCheckoutModal from '@/components/StripeCheckoutModal'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import AddToCalendarButton from "@/components/AddToCalendarButton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -41,17 +43,20 @@ import {
   TrendingUp,
   CalendarDays,
   Clock4,
-  VideoIcon,
-  MessageSquareText,
-  RefreshCw
+  Video as VideoIcon,
+  MessageSquare as MessageSquareText,
+  RefreshCw,
+  Phone,
+  Info,
+  Check
 } from 'lucide-react'
 import { User as SupabaseUser } from '@supabase/supabase-js'
 
 // Types
 interface Lawyer {
   id: string | number
-  fullname: string
-  name?: string // Alternative name field
+  name: string
+  user_id?: string | number // Backend uses this as the lawyerId in booking API
   specialty?: string[]
   expertise_areas?: string[] // New field for expertise areas
   email?: string
@@ -88,6 +93,10 @@ interface ConsultationApiResponse {
   room_url?: string
   notes?: string
   freelancer_name?: string
+  base_fee?: number
+  additional_fee?: number
+  total_fee?: number
+  instructions?: string
 }
 
 export default function LegalConsultations() {
@@ -98,11 +107,18 @@ export default function LegalConsultations() {
   const [showBooking, setShowBooking] = useState(false)
   const [selectedLawyer, setSelectedLawyer] = useState<Lawyer | null>(null)
   const [showLawyerProfile, setShowLawyerProfile] = useState(false)
+  const [bookingStep, setBookingStep] = useState<'details' | 'review' | 'payment' | 'confirmation'>('details')
+  const [consultationFees, setConsultationFees] = useState<{
+    base_fee: number;
+    additional_fee: number;
+    total_fee: number;
+  } | null>(null)
   const [profileLawyer, setProfileLawyer] = useState<Lawyer | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null)
   const [showReschedule, setShowReschedule] = useState(false)
   const [showFindLawyer, setShowFindLawyer] = useState(false)
+  const [bookingSuccess, setBookingSuccess] = useState(false)
 
   // Form states
   const [bookingDate, setBookingDate] = useState('')
@@ -113,6 +129,13 @@ export default function LegalConsultations() {
   const [feedbackComments, setFeedbackComments] = useState('')
   const [rescheduleDate, setRescheduleDate] = useState('')
   const [rescheduleTime, setRescheduleTime] = useState('')
+  
+  // Stripe checkout modal state
+  const [stripeModalOpen, setStripeModalOpen] = useState(false)
+  const [stripeClientSecret, setStripeClientSecret] = useState('')
+  const [stripeSessionId, setStripeSessionId] = useState('')
+  const [stripeAmount, setStripeAmount] = useState(0)
+  const [stripeTitle, setStripeTitle] = useState('')
 
   // Data states
   const [user, setUser] = useState<SupabaseUser | null>(null)
@@ -127,8 +150,6 @@ export default function LegalConsultations() {
   const [rescheduleLoading, setRescheduleLoading] = useState(false)
   const hasFetchedConsultations = useRef(false)
   const userRef = useRef<SupabaseUser | null>(null)
-
-  // Remove BASE_URL since we're using API_ENDPOINTS
 
   // Fetch user
   useEffect(() => {
@@ -181,10 +202,16 @@ export default function LegalConsultations() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
-      const data = await response.json()
-      console.log('Consultations API response:', data)
-      console.log('Response type:', typeof data)
-      console.log('Is array:', Array.isArray(data))
+      let data
+      try {
+        data = await response.json()
+        console.log('Consultations API response:', data)
+        console.log('Response type:', typeof data)
+        console.log('Is array:', Array.isArray(data))
+      } catch (jsonError) {
+        console.error('Error parsing JSON response:', jsonError)
+        throw new Error('Failed to parse server response')
+      }
       
       // Ensure data is an array and process each consultation
       const processedConsultations = Array.isArray(data) ? data
@@ -223,53 +250,430 @@ export default function LegalConsultations() {
     }
   }, [user, fetchConsultations])
 
-  // Book consultation
-  const handleBookConsultation = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedLawyer || !bookingDate || !bookingTime || !user) return
-    setBookingLoading(true)
-    try {
-      const datetime = new Date(`${bookingDate}T${bookingTime}`)
-      const res = await fetch(API_ENDPOINTS.CONSULTATIONS.BOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          lawyerId: selectedLawyer.id,
-          datetime: datetime.toISOString(),
-          method: bookingMethod,
-          notes: bookingNotes
+  // Handle booking step navigation
+  const handleNextStep = async () => {
+    if (bookingStep === 'details') {
+      if (!selectedLawyer || !bookingDate || !bookingTime) {
+        toast({
+          title: 'Missing Information',
+          description: 'Please fill in all required fields',
+          variant: 'destructive'
         })
-      })
-      if (!res.ok) throw new Error('Booking failed')
-      setShowBooking(false)
-      setBookingDate('')
-      setBookingTime('')
-      setBookingNotes('')
-      toast({
-        title: 'Consultation Booked',
-        description: 'Your consultation has been successfully scheduled.',
-        variant: 'success'
-      })
-      hasFetchedConsultations.current = false
-      fetchConsultations()
-    } catch {
-      toast({
-        title: 'Booking Failed',
-        description: 'Could not book consultation. Please try again.',
-        variant: 'destructive'
-      })
-    } finally {
-      setBookingLoading(false)
+        return
+      }
+      
+      setBookingLoading(true)
+      
+      try {
+        // For voice calls, fetch pricing information
+        if (bookingMethod === 'voice') {
+          // In a real implementation, this would call an API endpoint to get pricing
+          // For now we'll simulate with static values
+          setConsultationFees({
+            base_fee: 50,
+            additional_fee: 10,
+            total_fee: 60
+          })
+        } else {
+          // For other consultation types, set default pricing
+          setConsultationFees({
+            base_fee: 40,
+            additional_fee: 0,
+            total_fee: 40
+          })
+        }
+        
+        setBookingStep('review')
+      } catch (error) {
+        console.error('Error getting consultation fees:', error)
+        toast({
+          title: 'Error',
+          description: 'Could not fetch consultation pricing. Please try again.',
+          variant: 'destructive'
+        })
+      } finally {
+        setBookingLoading(false)
+      }
+    } else if (bookingStep === 'review') {
+      // Proceed directly to Stripe payment without going to payment summary
+      setBookingLoading(true)
+      try {
+        // Submit booking and trigger Stripe checkout
+        await handleSubmitBooking()
+        // Note: We don't need to set booking loading to false here as the page will redirect
+      } catch (error) {
+        console.error('Booking/payment error:', error)
+        toast({
+          title: 'Payment Failed',
+          description: 'There was an issue processing your booking. Please try again.',
+          variant: 'destructive'
+        })
+        setBookingLoading(false)
+      }
     }
+  }
+  
+  // Go back to previous step
+  const handlePreviousStep = () => {
+    if (bookingStep === 'review') {
+      setBookingStep('details')
+    } else if (bookingStep === 'confirmation') {
+      // Reset the whole process
+      handleCancelBooking()
+    }
+    // Payment step is now removed, handled directly in Stripe checkout
+  }
+  
+  // States for cancel confirmation dialog
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+
+  // Show cancel confirmation
+  const showCancelConfirmation = () => {
+    setShowCancelConfirm(true)
+  }
+
+  // Handle confirmed cancellation
+  const handleCancelBookingConfirmed = () => {
+    // Reset booking form and close dialog
+    setBookingStep('details')
+    setBookingDate(new Date().toISOString().split('T')[0])
+    setBookingTime('')
+    setBookingMethod('video')
+    setBookingNotes('')
+    setShowBooking(false)
+    setConsultationFees(null)
+    setBookingLoading(false)
+    setShowCancelConfirm(false) // Close confirmation dialog
+  }
+
+  // Handle cancellation - now shows confirmation first
+  const handleCancelBooking = () => {
+    showCancelConfirmation()
+  }
+
+  // Book consultation (final submission)
+  const handleSubmitBooking = async () => {
+    try {
+      setBookingLoading(true);
+      
+      // Use existing user state
+      if (!user || !selectedLawyer) {
+        toast({
+          title: "Error",
+          description: "Unable to complete booking. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Format date and time for API
+      const bookingDatetime = `${bookingDate}T${bookingTime}:00`;
+      
+      // Validate the date is valid
+      const dateObj = new Date(bookingDatetime);
+      if (isNaN(dateObj.getTime())) {
+        toast({
+          title: "Invalid Date",
+          description: "Please select a valid date and time for the consultation.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Prepare request payload with additional fields and validation
+      const payload = {
+        userId: user.id, // Include userId in the request
+        clientId: user.id, // Some APIs expect clientId instead of userId
+        lawyerId: selectedLawyer?.user_id || selectedLawyer?.id, // Backend expects user_id, not id
+        datetime: bookingDatetime,
+        date: bookingDate, // Add date separately
+        time: bookingTime, // Add time separately
+        method: bookingMethod || 'video', // Provide default
+        notes: bookingNotes || '',
+        status: 'pending' // Add status field
+      };
+      
+      // Validation
+      if (!payload.lawyerId) {
+        throw new Error("Lawyer information is missing");
+      }
+      
+      if (!bookingDate || !bookingTime) {
+        throw new Error("Please select both date and time for the consultation");
+      }
+      
+      console.log("Booking payload:", payload);
+      
+      // Do NOT convert lawyerId to a number since it could be a user ID string
+      // The backend controller looks for a user_id, which might be a string
+      // Keep the lawyerId as-is to preserve its correct format
+      console.log("Selected lawyer full object:", selectedLawyer);
+      
+      // Log the exact format we're sending
+      console.log("Sending formatted payload:", JSON.stringify(payload));
+      
+      // Call API to book consultation - matching Postman request exactly
+      const response = await fetch(`${API_ENDPOINTS.CONSULTATIONS.BOOK}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+          // Authorization header removed as per your Postman test
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      // Log response for debugging
+      console.log("Booking response status:", response.status);
+
+      if (!response.ok) {
+        // Try to get detailed error information
+        try {
+          // Clone the response to read it twice
+          const responseClone = response.clone();
+          // Try to get the response as text first
+          const responseText = await responseClone.text();
+          console.error("API response text:", responseText);
+          
+          try {
+            // Then try to parse as JSON if possible
+            const errorData = JSON.parse(responseText);
+            console.error("API error details:", errorData);
+            throw new Error(errorData.message || errorData.error || "Failed to book consultation");
+          } catch (jsonError) {
+            // If JSON parsing fails, use the text response
+            console.error("JSON parse error:", jsonError);
+            throw new Error(`Server error (${response.status}): ${responseText || response.statusText}`);
+          }
+        } catch (parseError) {
+          // Handle case where response cannot be read at all
+          console.error("API response status:", response.status, response.statusText);
+          console.error("Response read error:", parseError);
+          throw new Error(`Server error (${response.status}): ${response.statusText}`);
+        }
+      }
+
+      let data;
+      try {
+        data = await response.json();
+        console.log("Full API response:", data);
+      } catch (jsonError) {
+        console.error("Error parsing booking response JSON:", jsonError);
+        throw new Error("Could not parse server response");
+      }
+
+      // Check for status === 'confirmed' instead of success flag
+      if (data.status === 'confirmed' || data.success) {
+        // Show success message
+        toast({
+          title: "Booking Created",
+          description: "Your consultation has been booked. Proceeding to payment.",
+        });
+        
+        // Ensure lawyer data is available
+        if (!selectedLawyer || !selectedLawyer.name) {
+          console.error("Missing lawyer information for payment", selectedLawyer);
+          toast({
+            title: "Error",
+            description: "Missing lawyer information. Please try again.",
+            variant: "destructive"
+          });
+          setBookingLoading(false);
+          return;
+        }
+        
+        // Use lawyer name from the data response as fallback if available
+        const lawyerName = selectedLawyer.name || data.lawyerName || "Your Lawyer";
+        
+        // Show Stripe checkout in modal
+        try {
+          // Import the stripe utility dynamically to avoid issues with SSR
+          const { createCheckoutSession } = await import('@/lib/stripe');
+          console.log("Selected lawyer:", selectedLawyer);
+          console.log("Booking datetime:", bookingDatetime);
+          console.log("Booking method:", bookingMethod);
+          
+          // Check if we have a valid consultation ID from the booking response
+          if (!data.consultationId) {
+            console.error("Missing consultationId in booking response");
+            throw new Error("Invalid booking data returned from server. ConsultationId is required for payment.");
+          }
+          
+          // Ensure we have a valid fee to charge
+          const fee = typeof data.fee?.total === 'string' 
+            ? parseFloat(data.fee.total) 
+            : (data.fee?.total || 5000);
+            
+          if (!fee || isNaN(fee) || fee <= 0) {
+            console.error("Invalid fee in booking response:", data.fee);
+            throw new Error("Invalid consultation fee. Please try again.");
+          }
+          
+          // Create checkout session with Stripe
+          const sessionData = await createCheckoutSession({
+            consultationId: data.consultationId,
+            lawyerName: lawyerName,
+            datetime: bookingDatetime,
+            method: bookingMethod || data.method,
+            fee: fee,
+            userId: user.id,
+            useModal: true // Use modal checkout
+          });
+          
+          console.log("SessionData== ", sessionData);
+          
+          // Validate sessionData
+          if (!sessionData || !sessionData.success) {
+            console.error("Invalid session data returned:", sessionData);
+            throw new Error("Could not create payment session. Please try again.");
+          }
+          // Update modal state to trigger it to open
+          if (sessionData?.clientSecret) {
+            // Set the data first
+            setStripeClientSecret(sessionData.clientSecret);
+            setStripeSessionId(sessionData.sessionId);
+            setStripeAmount(data.fee?.total || 5000);
+            // Use the same lawyer name that was sent to the backend
+            setStripeTitle(`Legal Consultation with ${lawyerName}`);
+            
+            // Debug logging
+            console.log('Opening Stripe modal with:', {
+              clientSecret: sessionData.clientSecret.substring(0, 10) + '...',
+              sessionId: sessionData.sessionId,
+              amount: data.fee?.total || 5000,
+              title: `Legal Consultation with ${lawyerName}`
+            });
+            
+            // Force a small delay to ensure state is updated before showing modal
+            setTimeout(() => {
+              setStripeModalOpen(true);
+            }, 100);
+          } else if (sessionData.url) {
+            // Fallback to redirect if client secret isn't available but URL is
+            window.location.href = sessionData.url;
+          } else {
+            // No client secret or URL available
+            throw new Error("Invalid payment session. Missing client secret and URL.");
+          }
+        } catch (stripeError) {
+          console.error('Error setting up payment:', stripeError);
+          toast({
+            title: "Payment Error",
+            description: "Unable to process payment. Please try again.",
+            variant: "destructive",
+          });
+          
+          // Reset booking state on error
+          setBookingLoading(false);
+        }
+      } else {
+        // Log detailed response information for debugging
+        console.error("API response failed with data:", data);
+        
+        // Try to extract more meaningful error information
+        const errorMessage = data.message || data.error || 
+                           (data.errors && Array.isArray(data.errors) && data.errors.length > 0 ? data.errors[0] : null) || 
+                           "API returned failure status";
+                           
+        // Log payload for comparison
+        console.error("Original request payload:", payload);
+        
+        toast({
+          title: "Booking Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Error booking consultation:", error);
+      // Log more details about the error to help debugging
+      if (error instanceof Error) {
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      
+      // Just stop the loading state but keep modal open
+      setBookingLoading(false);
+      // Don't close the booking modal on error
+      // setShowBooking(false);
+      
+      toast({
+        title: "Booking Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setBookingLoading(false);
+    }
+  }
+  
+  // Handle payment success
+  const handlePaymentSuccess = () => {
+    // Show success message
+    toast({
+      title: "Payment Successful",
+      description: "Your consultation has been booked and paid for.",
+    });
+    
+    // Mark booking as successful
+    setBookingSuccess(true);
+    
+    // Refresh consultations list
+    fetchConsultations();
+  };
+  
+  // Handle payment modal close
+  const handlePaymentClose = () => {
+    console.log('Payment modal closing, bookingSuccess:', bookingSuccess);
+    setStripeModalOpen(false);
+    if (bookingSuccess) {
+      setShowBooking(false);
+      setBookingStep('details');
+      fetchConsultations();
+    }
+  }
+
+  // Handle proceeding to payment step
+  const handleProceedToPayment = () => {
+    console.log("Current selected lawyer state:", selectedLawyer);
+    
+    // Set the booking step first regardless of validation
+    setBookingStep('payment');
+    
+    // When proceeding to payment, we don't need to validate selectedLawyer here
+    // because handleSubmitBooking will handle that validation
+    // This prevents the "Missing lawyer information" error
+    
+    // Initialize payment process
+    handleSubmitBooking();
   }
 
   // Submit feedback
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedConsultation) return
+    if (!selectedConsultation || !selectedConsultation.id) {
+      toast({
+        title: 'Error',
+        description: 'Invalid consultation information.',
+        variant: 'destructive'
+      })
+      return
+    }
+    
+    if (feedbackRating === 0) {
+      toast({
+        title: 'Missing Rating',
+        description: 'Please provide a rating before submitting feedback.',
+        variant: 'destructive'
+      })
+      return
+    }
+    
     setFeedbackLoading(true)
-    console.log('Feedback loading ', selectedConsultation)
+    console.log('Submitting feedback for consultation:', selectedConsultation.id)
+    
     try {
       const res = await fetch(API_ENDPOINTS.CONSULTATIONS.FEEDBACK(selectedConsultation.id.toString()), {
         method: 'POST',
@@ -279,27 +683,38 @@ export default function LegalConsultations() {
           comments: feedbackComments
         })
       })
-      console.log('Feedback res', res)
-      if (!res.ok) throw new Error('Feedback failed')
+      
+      console.log('Feedback response status:', res.status)
+      
+      if (!res.ok) {
+        // Try to get more detailed error information
+        const errorText = await res.text()
+        console.error('Feedback error response:', errorText)
+        throw new Error(`Feedback submission failed: ${res.status} ${res.statusText}`)
+      }
+      
       setShowFeedback(false)
       setFeedbackComments('')
+      setFeedbackRating(0)
+      
       toast({
         title: 'Feedback Submitted',
         description: 'Thank you for your feedback!',
         variant: 'success'
       })
-      console.log('Feedback submitted + reschedule')
+      
+      console.log('Feedback submitted successfully')
       hasFetchedConsultations.current = false
       fetchConsultations()
-    } catch {
-      console.log('Feedback failed')
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+      
       toast({
         title: 'Feedback Failed',
-        description: 'Could not submit feedback. Please try again.',
+        description: error instanceof Error ? error.message : 'Could not submit feedback. Please try again.',
         variant: 'destructive'
       })
     } finally {
-      console.log('Feedback finally')
       setFeedbackLoading(false)
     }
   }
@@ -307,10 +722,24 @@ export default function LegalConsultations() {
   // Reschedule
   const handleRescheduleConsultation = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedConsultation || !rescheduleDate || !rescheduleTime) return
+    if (!selectedConsultation || !rescheduleDate || !rescheduleTime) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please select both date and time for rescheduling.',
+        variant: 'destructive'
+      })
+      return
+    }
+    
     setRescheduleLoading(true)
     try {
       const newDatetime = new Date(`${rescheduleDate}T${rescheduleTime}`)
+      
+      // Validate the date is valid
+      if (isNaN(newDatetime.getTime())) {
+        throw new Error('Invalid date or time format')
+      }
+      
       const res = await fetch(API_ENDPOINTS.CONSULTATIONS.CONSULTATION(selectedConsultation.id.toString()), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -319,7 +748,14 @@ export default function LegalConsultations() {
           newDatetime: newDatetime.toISOString()
         })
       })
-      if (!res.ok) throw new Error('Reschedule failed')
+      
+      if (!res.ok) {
+        // Try to get more detailed error information
+        const errorText = await res.text()
+        console.error('Reschedule error response:', errorText)
+        throw new Error(`Reschedule failed: ${res.status} ${res.statusText}`)
+      }
+      
       setShowReschedule(false)
       setRescheduleDate('')
       setRescheduleTime('')
@@ -330,10 +766,11 @@ export default function LegalConsultations() {
       })
       hasFetchedConsultations.current = false
       fetchConsultations()
-    } catch {
+    } catch (error) {
+      console.error('Error rescheduling consultation:', error)
       toast({
         title: 'Reschedule Failed',
-        description: 'Could not reschedule consultation. Please try again.',
+        description: error instanceof Error ? error.message : 'Could not reschedule consultation. Please try again.',
         variant: 'destructive'
       })
     } finally {
@@ -343,13 +780,29 @@ export default function LegalConsultations() {
 
   // Cancel consultation
   const handleCancelConsultation = async (consultation: Consultation) => {
+    if (!consultation || !consultation.id) {
+      toast({
+        title: 'Error',
+        description: 'Invalid consultation information.',
+        variant: 'destructive'
+      })
+      return
+    }
+    
     try {
       const res = await fetch(API_ENDPOINTS.CONSULTATIONS.CONSULTATION(consultation.id.toString()), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel' })
       })
-      if (!res.ok) throw new Error('Cancel failed')
+      
+      if (!res.ok) {
+        // Try to get more detailed error information
+        const errorText = await res.text()
+        console.error('Cancel error response:', errorText)
+        throw new Error(`Cancel failed: ${res.status} ${res.statusText}`)
+      }
+      
       toast({
         title: 'Consultation Cancelled',
         description: 'Your consultation has been cancelled.',
@@ -357,10 +810,11 @@ export default function LegalConsultations() {
       })
       hasFetchedConsultations.current = false
       fetchConsultations()
-    } catch {
+    } catch (error) {
+      console.error('Error cancelling consultation:', error)
       toast({
         title: 'Cancel Failed',
-        description: 'Could not cancel consultation. Please try again.',
+        description: error instanceof Error ? error.message : 'Could not cancel consultation. Please try again.',
         variant: 'destructive'
       })
     }
@@ -393,7 +847,7 @@ export default function LegalConsultations() {
   const getMethodIcon = (method: string) => {
     switch (method.toLowerCase()) {
       case 'video': return <Video className="h-4 w-4" />
-      case 'phone': return <MessageCircle className="h-4 w-4" />
+      case 'voice': return <Phone className="h-4 w-4" />
       case 'chat': return <MessageSquare className="h-4 w-4" />
       default: return <Calendar className="h-4 w-4" />
     }
@@ -406,7 +860,7 @@ export default function LegalConsultations() {
 
   // Helper function to get lawyer name
   const getLawyerName = (lawyer: Lawyer) => {
-    return lawyer.fullname || lawyer.name || 'Legal Professional'
+    return lawyer.name || lawyer.name || 'Legal Professional'
   }
 
   // Helper function to get verification status display
@@ -461,11 +915,21 @@ export default function LegalConsultations() {
     
     try {
       const response = await fetch(`${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${currentUser.id}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const consultations = await response.json()
+      
+      if (!Array.isArray(consultations)) {
+        console.error('Expected array of consultations but got:', typeof consultations)
+        return null
+      }
       
       // Find the most recent active consultation with this lawyer
       const consultation = consultations.find((c: Consultation) => 
-        c.lawyerName === lawyers.find(l => l.id === lawyerId)?.fullname && 
+        c.lawyerName === lawyers.find(l => l.id === lawyerId)?.name && 
         c.status === 'confirmed' && 
         c.roomUrl
       )
@@ -484,9 +948,19 @@ export default function LegalConsultations() {
     
     try {
       const response = await fetch(`${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${currentUser.id}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const consultations = await response.json()
       
-      const lawyerName = lawyers.find(l => l.id === lawyerId)?.fullname
+      if (!Array.isArray(consultations)) {
+        console.error('Expected array of consultations but got:', typeof consultations)
+        return false
+      }
+      
+      const lawyerName = lawyers.find(l => l.id === lawyerId)?.name
       return consultations.some((c: Consultation) => 
         c.lawyerName === lawyerName && 
         c.status === 'confirmed'
@@ -498,7 +972,7 @@ export default function LegalConsultations() {
   }
 
   const filteredLawyers = lawyers.filter((lawyer) =>
-    (lawyer.fullname ?? '').toLowerCase().includes(lawyerSearch.toLowerCase()) ||
+    (lawyer.name ?? '').toLowerCase().includes(lawyerSearch.toLowerCase()) ||
     (lawyer.specialty &&
       lawyer.specialty.some((s) =>
         s.toLowerCase().includes(lawyerSearch.toLowerCase())
@@ -958,81 +1432,279 @@ export default function LegalConsultations() {
         </Tabs>
 
         {/* Booking Modal */}
-        <Dialog open={showBooking} onOpenChange={setShowBooking}>
-          <DialogContent className="sm:max-w-[500px]">
+        <Dialog open={showBooking} onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            handleCancelBooking()
+          } else {
+            setShowBooking(isOpen)
+          }
+        }}>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Book Consultation</DialogTitle>
+              <DialogTitle>
+                {bookingStep === 'details' && 'Book Consultation'}
+                {bookingStep === 'review' && 'Review Consultation Details'}
+                {bookingStep === 'payment' && 'Complete Payment'}
+                {bookingStep === 'confirmation' && 'Booking Confirmed'}
+              </DialogTitle>
               <DialogDescription>
-                Schedule a consultation with {selectedLawyer?.fullname}
+                {bookingStep === 'details' && `Schedule a consultation with ${selectedLawyer?.name}`}
+                {bookingStep === 'review' && 'Please review your consultation details before proceeding'}
+                {bookingStep === 'payment' && 'Complete payment to confirm your booking'}
+                {bookingStep === 'confirmation' && 'Your consultation has been successfully booked'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleBookConsultation} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Date</label>
-                  <Input
-                    type="date"
-                    value={bookingDate}
-                    onChange={(e) => setBookingDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    required
-                  />
+            
+            {/* Step 1: Details Form */}
+            {bookingStep === 'details' && (
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                handleNextStep();
+              }} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Date</label>
+                    <Input
+                      type="date"
+                      value={bookingDate}
+                      onChange={(e) => setBookingDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Time</label>
+                    <Input
+                      type="time"
+                      value={bookingTime}
+                      onChange={(e) => setBookingTime(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Time</label>
-                  <Input
-                    type="time"
-                    value={bookingTime}
-                    onChange={(e) => setBookingTime(e.target.value)}
-                    required
+                  <label className="text-sm font-medium">Method</label>
+                  <Select value={bookingMethod} onValueChange={setBookingMethod}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="video">
+                        <div className="flex items-center gap-2">
+                          <Video className="h-4 w-4" />
+                          Video Call
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="chat">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4" />
+                          Chat
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="voice">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          Voice Call
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Notes (Optional)</label>
+                  <Textarea
+                    placeholder="Describe your legal issue or questions..."
+                    value={bookingNotes}
+                    onChange={(e) => setBookingNotes(e.target.value)}
+                    rows={3}
                   />
                 </div>
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleCancelBooking()}
+                    disabled={bookingLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={bookingLoading}>
+                    {bookingLoading ? 'Processing...' : 'Next'}
+                  </Button>
+                </div>
+              </form>
+            )}
+            
+            {/* Step 2: Review Details */}
+            {bookingStep === 'review' && (
+              <div className="space-y-4">
+                <div className="border rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Consultation with:</span>
+                    <span className="text-sm">{selectedLawyer?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Date & Time:</span>
+                    <span className="text-sm">
+                      {new Date(`${bookingDate}T${bookingTime}`).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Method:</span>
+                    <span className="text-sm flex items-center gap-1">
+                      {getMethodIcon(bookingMethod)}
+                      {bookingMethod === 'video' && 'Video Call'}
+                      {bookingMethod === 'chat' && 'Chat'}
+                      {bookingMethod === 'voice' && 'Voice Call'}
+                    </span>
+                  </div>
+                  {bookingNotes && (
+                    <div className="pt-2">
+                      <span className="text-sm font-medium">Notes:</span>
+                      <p className="text-sm mt-1">{bookingNotes}</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Fee Details */}
+                <div className="border rounded-lg p-4 space-y-2">
+                  <h4 className="font-medium">Fee Details</h4>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Base Consultation Fee</span>
+                    <span className="text-sm">${consultationFees?.base_fee.toFixed(2)}</span>
+                  </div>
+                  
+                  {bookingMethod === 'voice' && consultationFees?.additional_fee ? (
+                    <div className="flex justify-between">
+                      <span className="text-sm">Voice Call Additional Fee</span>
+                      <span className="text-sm">${consultationFees.additional_fee.toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  
+                  <div className="flex justify-between font-medium pt-2 border-t">
+                    <span>Total</span>
+                    <span>${consultationFees?.total_fee.toFixed(2)}</span>
+                  </div>
+                </div>
+                
+                {/* Special Instructions for Voice Call */}
+                {bookingMethod === 'voice' && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Info className="h-4 w-4" /> Voice Call Instructions
+                    </h4>
+                    <p className="text-sm mt-2">
+                      The lawyer will call you at the scheduled time. Please ensure your contact 
+                      details are up to date and you're available to take the call.
+                    </p>
+                  </div>
+                )}
+                
+                <DialogFooter className="flex justify-between border-t pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePreviousStep}
+                    disabled={bookingLoading}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleProceedToPayment}
+                    disabled={bookingLoading}
+                  >
+                    {bookingLoading ? (
+                      <>
+                        <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></span>
+                        Processing...
+                      </>
+                    ) : (
+                      'Proceed to Payment'
+                    )}
+                  </Button>
+                </DialogFooter>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Method</label>
-                <Select value={bookingMethod} onValueChange={setBookingMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="video">
-                      <div className="flex items-center gap-2">
-                        <Video className="h-4 w-4" />
-                        Video Call
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="chat">
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        Chat
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+            )}
+            
+            {/* Step 3: Payment - Loading State */}
+            {bookingStep === 'payment' && (
+              <div className="space-y-4 flex flex-col items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mb-4"></div>
+                  <h3 className="font-medium text-lg mb-2">Processing Payment</h3>
+                  <p className="text-gray-500">Please wait while we prepare your payment...</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Notes (Optional)</label>
-                <Textarea
-                  placeholder="Describe your legal issue or questions..."
-                  value={bookingNotes}
-                  onChange={(e) => setBookingNotes(e.target.value)}
-                  rows={3}
-                />
+            )}
+            
+            {/* Step 4: Confirmation */}
+            {bookingStep === 'confirmation' && (
+              <div className="space-y-4 text-center">
+                <div className="py-4">
+                  <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <Check className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+                
+                <h3 className="font-medium text-lg">Consultation Booked Successfully!</h3>
+                
+                <div className="border rounded-lg p-4 text-left space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Consultation with:</span>
+                    <span className="text-sm">{selectedLawyer?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Date & Time:</span>
+                    <span className="text-sm">
+                      {new Date(`${bookingDate}T${bookingTime}`).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Method:</span>
+                    <span className="text-sm flex items-center gap-1">
+                      {getMethodIcon(bookingMethod)}
+                      {bookingMethod === 'video' && 'Video Call'}
+                      {bookingMethod === 'chat' && 'Chat'}
+                      {bookingMethod === 'voice' && 'Voice Call'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Total Fee:</span>
+                    <span className="text-sm">${consultationFees?.total_fee.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="flex justify-center mt-4">
+                    <AddToCalendarButton
+                      name={`Legal Consultation with ${selectedLawyer?.name}`}
+                      description={`Legal consultation via ${bookingMethod}. ${bookingNotes ? `Notes: ${bookingNotes}` : ''}`}
+                      startDate={bookingDate}
+                      startTime={bookingTime}
+                      location={bookingMethod === 'video' ? 'Video call link will be provided before the meeting' : ''}
+                    />
+                  </div>
+                </div>
+                
+                {bookingMethod === 'voice' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                    <h4 className="font-medium flex items-center gap-2 text-blue-800">
+                      <Info className="h-4 w-4" /> Next Steps
+                    </h4>
+                    <p className="text-sm mt-2">
+                      The lawyer will call you at the scheduled time. Make sure your phone details 
+                      are up to date. You'll receive an email with the confirmation details.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex justify-center pt-4">
+                  <Button type="button" onClick={() => handleCancelBooking()}>
+                    Done
+                  </Button>
+                </div>
               </div>
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowBooking(false)}
-                  disabled={bookingLoading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={bookingLoading}>
-                  {bookingLoading ? 'Booking...' : 'Book Consultation'}
-                </Button>
-              </div>
-            </form>
+            )}
+
           </DialogContent>
         </Dialog>
 
@@ -1150,7 +1822,7 @@ export default function LegalConsultations() {
               <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
                 <AvatarImage src={profileLawyer?.avatarUrl} />
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl">
-                  {profileLawyer?.fullname?.split(' ').map((n) => n[0]).join('')}
+                  {profileLawyer?.name?.split(' ').map((n) => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
               <div className="text-center">
@@ -1475,7 +2147,7 @@ export default function LegalConsultations() {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          const whatsappLink = `https://wa.me/${profileLawyer?.phone?.replace(/\D/g, '')}?text=Hi ${profileLawyer?.fullname}, I'd like to discuss a legal matter.`
+                          const whatsappLink = `https://wa.me/${profileLawyer?.phone?.replace(/\D/g, '')}?text=Hi ${profileLawyer?.name}, I'd like to discuss a legal matter.`
                           window.open(whatsappLink, '_blank')
                         }}
                         className="text-green-600 hover:text-green-700"
@@ -1544,12 +2216,12 @@ export default function LegalConsultations() {
                           <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                             <AvatarImage src={lawyer.avatarUrl} />
                             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                              {lawyer.fullname?.split(' ').map((n) => n[0]).join('')}
+                              {lawyer.name?.split(' ').map((n) => n[0]).join('')}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-gray-900">{lawyer.fullname}</h3>
+                              <h3 className="font-semibold text-gray-900">{lawyer.name}</h3>
                               {lawyer.is_verified && (
                                 <Badge variant="default" className="text-xs">
                                   <Award className="mr-1 h-3 w-3" />
@@ -1601,6 +2273,37 @@ export default function LegalConsultations() {
           </DialogContent>
         </Dialog>
       </div>
+      
+      {/* Stripe Checkout Modal */}
+      <StripeCheckoutModal
+        isOpen={stripeModalOpen}
+        clientSecret={stripeClientSecret}
+        sessionId={stripeSessionId}
+        amount={stripeAmount}
+        title={stripeTitle}
+        onSuccess={handlePaymentSuccess}
+        onClose={handlePaymentClose}
+      />
+      
+      {/* Cancel Booking Confirmation Dialog */}
+      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Cancel Booking</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this booking? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>
+              No, Keep Booking
+            </Button>
+            <Button variant="destructive" onClick={handleCancelBookingConfirmed}>
+              Yes, Cancel Booking
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

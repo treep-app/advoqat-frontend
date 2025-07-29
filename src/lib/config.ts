@@ -5,10 +5,14 @@ export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localh
 export const API_ENDPOINTS = {
   // Document endpoints
   DOCUMENTS: {
+    BASE: `${BACKEND_URL}/api/v1/documents`,
     GENERATE: `${BACKEND_URL}/api/v1/documents/generate`,
     USER_DOCUMENTS: `${BACKEND_URL}/api/v1/documents/user`,
     DOCUMENT: (id: string) => `${BACKEND_URL}/api/v1/documents/${id}`,
     TEMPLATES: `${BACKEND_URL}/api/v1/documents/templates`,
+    CREATE_PAYMENT: (id: string) => `${BACKEND_URL}/api/v1/documents/${id}/create-payment`,
+    VERIFY_PAYMENT: (id: string) => `${BACKEND_URL}/api/v1/documents/${id}/verify-payment`,
+    DOWNLOAD: (id: string) => `${BACKEND_URL}/api/v1/documents/${id}/download`,
   },
   
   // AI Assistant endpoints

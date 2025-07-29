@@ -29,7 +29,12 @@ import {
   Trash2,
   Loader2,
   MoreVertical,
-  Clock4
+  Clock4,
+  CreditCard,
+  Lock,
+  DollarSign,
+  AlertCircle,
+  XCircle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { API_ENDPOINTS } from '@/lib/config'
@@ -64,6 +69,12 @@ interface DocumentRecord {
   form_data: Record<string, string>;
   generated_document: string;
   document_type: string;
+  document_fee: number;
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
+  payment_session_id?: string;
+  payment_intent_id?: string;
+  paid_at?: string;
+  download_count: number;
   status: string;
   created_at: string;
 }
@@ -157,6 +168,11 @@ export default function DocumentsPage() {
   const [generatedDocument, setGeneratedDocument] = useState<string | null>(null)
   const [userDocuments, setUserDocuments] = useState<DocumentRecord[]>([])
   const [docsLoading, setDocsLoading] = useState(false)
+  // Payment-related state
+  const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedDocumentForPayment, setSelectedDocumentForPayment] = useState<DocumentRecord | null>(null)
+  const [downloadingDocument, setDownloadingDocument] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -182,22 +198,29 @@ export default function DocumentsPage() {
     getUser()
   }, [router])
 
+  const fetchDocuments = async () => {
+    if (!user?.id) return
+    
+    setDocsLoading(true)
+    try {
+      const response = await fetch(`${API_ENDPOINTS.DOCUMENTS.USER_DOCUMENTS}?userId=${user.id}`)
+      const data = await response.json()
+      
+      if (data.success) {
+        setUserDocuments((data.documents || []) as DocumentRecord[])
+      } else {
+        console.error('Failed to fetch user documents:', data.error)
+      }
+    } catch (err) {
+      console.error('Failed to fetch user documents', err)
+    } finally {
+      setDocsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (user) {
-      setDocsLoading(true)
-      fetch(`${API_ENDPOINTS.DOCUMENTS.USER_DOCUMENTS}?userId=${user.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setUserDocuments((data.documents || []) as DocumentRecord[])
-          } else {
-            console.error('Failed to fetch user documents:', data.error)
-          }
-        })
-        .catch(err => {
-          console.error('Failed to fetch user documents', err)
-        })
-        .finally(() => setDocsLoading(false))
+      fetchDocuments()
     }
   }, [user])
 
@@ -306,12 +329,135 @@ export default function DocumentsPage() {
     }
   }
 
-  const handleDownloadPDF = (doc: DocumentRecord) => {
-    const pdf = new jsPDF()
-    pdf.setFont('courier', 'normal')
-    pdf.setFontSize(12)
-    pdf.text(doc.generated_document, 10, 20)
-    pdf.save(`${doc.template_id || 'document'}-${doc.created_at ? new Date(doc.created_at).toISOString().slice(0,10) : ''}.pdf`)
+  // Payment-related functions
+  const handlePaymentRequired = (doc: DocumentRecord) => {
+    setSelectedDocumentForPayment(doc)
+    setShowPaymentModal(true)
+  }
+
+  const createPaymentSession = async (doc: DocumentRecord) => {
+    if (!user?.id) return
+    
+    setPaymentLoading(doc.id)
+    try {
+      const response = await fetch(API_ENDPOINTS.DOCUMENTS.CREATE_PAYMENT(doc.id), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create payment session')
+      }
+
+      const data = await response.json()
+      
+      // Redirect to Stripe checkout
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (error) {
+      console.error('Error creating payment session:', error)
+      toast({
+        title: 'Payment Error',
+        description: 'Failed to create payment session. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setPaymentLoading(null)
+    }
+  }
+
+  const handleSecureDownload = async (doc: DocumentRecord) => {
+    if (!user?.id) return
+
+    // Check payment status first
+    if (doc.payment_status !== 'paid') {
+      handlePaymentRequired(doc)
+      return
+    }
+
+    setDownloadingDocument(doc.id)
+    try {
+      const response = await fetch(`${API_ENDPOINTS.DOCUMENTS.DOWNLOAD(doc.id)}?userId=${user.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          handlePaymentRequired(doc)
+          return
+        }
+        throw new Error('Failed to download document')
+      }
+
+      const data = await response.json()
+      
+      // Create and download PDF
+      const pdf = new jsPDF()
+      pdf.setFont('courier', 'normal')
+      pdf.setFontSize(12)
+      pdf.text(data.document.content, 10, 20)
+      pdf.save(`${doc.template_id || 'document'}-${doc.created_at ? new Date(doc.created_at).toISOString().slice(0,10) : ''}.pdf`)
+      
+      toast({
+        title: 'Download Complete',
+        description: `Document downloaded successfully (Download #${data.document.downloadCount})`,
+        variant: 'success'
+      })
+      
+      // Refresh documents to update download count
+      await fetchDocuments()
+    } catch (error) {
+      console.error('Error downloading document:', error)
+      toast({
+        title: 'Download Failed',
+        description: 'Failed to download document. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setDownloadingDocument(null)
+    }
+  }
+
+  const getPaymentStatusBadge = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case 'paid':
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Paid
+          </Badge>
+        )
+      case 'pending':
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            <Clock className="h-3 w-3 mr-1" />
+            Payment Required
+          </Badge>
+        )
+      case 'failed':
+        return (
+          <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+            <XCircle className="h-3 w-3 mr-1" />
+            Payment Failed
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="outline">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            Unknown
+          </Badge>
+        )
+    }
   }
 
   const filteredTemplates = documentTemplates.filter(template => {
@@ -691,6 +837,7 @@ export default function DocumentsPage() {
                               </CardTitle>
                               <div className="flex items-center gap-2 mt-1">
                                 {getStatusIcon(doc.status)}
+                                {getPaymentStatusBadge(doc.payment_status)}
                                 <span className="text-sm text-gray-500">
                                   {new Date(doc.created_at).toLocaleDateString()}
                                 </span>
@@ -708,6 +855,18 @@ export default function DocumentsPage() {
                             <Clock className="h-4 w-4" />
                             <span>Created {new Date(doc.created_at).toLocaleString()}</span>
                           </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <DollarSign className="h-4 w-4" />
+                              <span>Fee: ${(doc.document_fee / 100).toFixed(2)}</span>
+                            </div>
+                            {doc.payment_status === 'paid' && (
+                              <div className="flex items-center gap-1 text-green-600">
+                                <Download className="h-3 w-3" />
+                                <span>{doc.download_count} downloads</span>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex gap-2">
                             <Button 
                               size="sm" 
@@ -720,10 +879,21 @@ export default function DocumentsPage() {
                             </Button>
                             <Button 
                               size="sm" 
-                              variant="outline" 
-                              onClick={() => handleDownloadPDF(doc)}
+                              variant={doc.payment_status === 'paid' ? 'default' : 'outline'}
+                              onClick={() => handleSecureDownload(doc)}
+                              disabled={downloadingDocument === doc.id || paymentLoading === doc.id}
+                              className={doc.payment_status === 'paid' ? 'bg-green-600 hover:bg-green-700' : ''}
                             >
-                              <Download className="h-4 w-4" />
+                              {downloadingDocument === doc.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : doc.payment_status === 'paid' ? (
+                                <Download className="h-4 w-4" />
+                              ) : (
+                                <>
+                                  <Lock className="h-4 w-4 mr-1" />
+                                  <span className="text-xs">Pay ${(doc.document_fee / 100).toFixed(2)}</span>
+                                </>
+                              )}
                             </Button>
                             <Button 
                               size="sm" 
@@ -750,6 +920,92 @@ export default function DocumentsPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && selectedDocumentForPayment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-semibold">Payment Required</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowPaymentModal(false)}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>
+                Complete payment to download your legal document
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg text-white text-xl">
+                    {getTemplateIcon(selectedDocumentForPayment.template_id)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{selectedDocumentForPayment.template_name}</h3>
+                    <p className="text-sm text-gray-600">
+                      Created {new Date(selectedDocumentForPayment.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold">Document Fee:</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    ${(selectedDocumentForPayment.document_fee / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Secure payment processing via Stripe</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Instant download after payment</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Unlimited downloads once paid</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => setShowPaymentModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  onClick={() => createPaymentSession(selectedDocumentForPayment)}
+                  disabled={paymentLoading === selectedDocumentForPayment.id}
+                >
+                  {paymentLoading === selectedDocumentForPayment.id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Pay ${(selectedDocumentForPayment.document_fee / 100).toFixed(2)}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </AppLayout>
   )
 } 

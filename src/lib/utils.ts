@@ -10,5 +10,5 @@ export const getSiteUrl = () => {
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     return process.env.NEXT_PUBLIC_SITE_URL
   }
-  return 'https://private-repo-sand.vercel.app'
+  return 'https://app.advoqat.com'
 }

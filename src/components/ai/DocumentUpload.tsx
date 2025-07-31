@@ -2,8 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToastContext } from '@/components/ui/toast-context'
 import { 
   Upload, 
@@ -127,7 +126,6 @@ export function DocumentUpload({ sessionId, userId, onDocumentsUploaded, onDocum
       })
 
       if (response.ok) {
-        setSessionDocuments(prev => prev.filter(doc => doc.id !== documentId))
         setUploadedFiles(prev => prev.filter(doc => doc.id !== documentId))
         onDocumentsChanged?.()
         
@@ -261,40 +259,7 @@ export function DocumentUpload({ sessionId, userId, onDocumentsUploaded, onDocum
         </Card>
       )}
 
-      {/* Session Documents */}
-      {sessionDocuments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Session Documents
-            </CardTitle>
-            <CardDescription>
-              Documents available for this AI session
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {sessionDocuments.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-blue-500" />
-                    <div>
-                      <p className="font-medium text-sm">{doc.original_name}</p>
-                      <p className="text-xs text-gray-500">
-                        Uploaded {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Unknown date'}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    Available for AI
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   )
 } 

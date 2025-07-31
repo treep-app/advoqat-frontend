@@ -113,18 +113,22 @@ export default function AIAssistantPage() {
     getUser()
   }, [router])
 
-  useEffect(() => {
-    if (user) {
-      fetchSessions()
+  const fetchSessions = useCallback(async () => {
+    if (!user) return
+    
+    try {
+      const response = await fetch(`${API_ENDPOINTS.AI_ASSISTANT.SESSIONS}?userId=${user.id}`)
+      const data = await response.json()
+      
+      if (data.success) {
+        setSessions(data.sessions)
+      } else {
+        console.error('Failed to fetch sessions:', data.error)
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error)
     }
-  }, [user, fetchSessions])
-
-  // Fetch session documents when session changes
-  useEffect(() => {
-    if (currentSession && user) {
-      fetchSessionDocuments()
-    }
-  }, [currentSession, user, fetchSessionDocuments])
+  }, [user])
 
   const fetchSessionDocuments = useCallback(async () => {
     if (!currentSession || !user) return
@@ -143,29 +147,25 @@ export default function AIAssistantPage() {
   }, [currentSession, user])
 
   useEffect(() => {
+    if (user) {
+      fetchSessions()
+    }
+  }, [user, fetchSessions])
+
+  // Fetch session documents when session changes
+  useEffect(() => {
+    if (currentSession && user) {
+      fetchSessionDocuments()
+    }
+  }, [currentSession, user, fetchSessionDocuments])
+
+  useEffect(() => {
     scrollToBottom()
   }, [messages])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
-
-  const fetchSessions = useCallback(async () => {
-    if (!user) return
-    
-    try {
-      const response = await fetch(`${API_ENDPOINTS.AI_ASSISTANT.SESSIONS}?userId=${user.id}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setSessions(data.sessions)
-      } else {
-        console.error('Failed to fetch sessions:', data.error)
-      }
-    } catch (error) {
-      console.error('Error fetching sessions:', error)
-    }
-  }, [user])
 
   const fetchSession = async (sessionId: string) => {
     if (!user) return
@@ -315,7 +315,7 @@ export default function AIAssistantPage() {
         <div className="h-screen">
           <DocumentChat
             documents={sessionDocuments}
-            sessionId={currentSession}
+            sessionId={currentSession || undefined}
             userId={user?.id || ''}
             onClose={() => setShowDocumentChat(false)}
           />
@@ -703,7 +703,7 @@ export default function AIAssistantPage() {
       <DocumentUploadModal
         isOpen={showDocumentUploadModal}
         onClose={() => setShowDocumentUploadModal(false)}
-        sessionId={currentSession}
+        sessionId={currentSession || undefined}
         userId={user?.id || ''}
         onDocumentsUploaded={(documents) => {
           setSessionDocuments(prev => [...prev, ...documents])

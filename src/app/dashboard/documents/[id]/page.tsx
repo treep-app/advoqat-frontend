@@ -144,7 +144,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       console.error('Error fetching document:', error)
       toast({
         title: 'Error',
-        description: error.message || 'Failed to load document details.',
+        description: error instanceof Error ? error.message : 'Failed to load document details.',
         variant: 'destructive'
       })
     } finally {
@@ -218,7 +218,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       console.error('Error verifying payment:', error)
       toast({
         title: 'Payment Verification Error',
-        description: error.message || 'Failed to verify payment. Please contact support.',
+        description: error instanceof Error ? error.message : 'Failed to verify payment. Please contact support.',
         variant: 'destructive'
       })
     } finally {
@@ -417,7 +417,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                       </p>
                     </div>
                                      </div>
-                   {document.payment_status === 'paid' && (
+                   {document.payment_status === 'paid' && user && (
                      <ExportOptions 
                        document={document}
                        documentId={documentId}

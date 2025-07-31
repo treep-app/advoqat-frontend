@@ -24,6 +24,16 @@ interface UploadedDocument {
   extractedText: string
 }
 
+interface SessionDocument {
+  id: string
+  original_name?: string
+  originalName?: string
+  extracted_text?: string
+  extractedText?: string
+  created_at?: string
+  createdAt?: string
+}
+
 interface DocumentUploadModalProps {
   isOpen: boolean
   onClose: () => void
@@ -31,7 +41,7 @@ interface DocumentUploadModalProps {
   userId: string
   onDocumentsUploaded?: (documents: UploadedDocument[]) => void
   onDocumentsChanged?: () => void
-  onStartDocumentChat?: (documents: UploadedDocument[]) => void
+  onStartDocumentChat?: (documents: SessionDocument[]) => void
 }
 
 export function DocumentUploadModal({ 
@@ -47,7 +57,7 @@ export function DocumentUploadModal({
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedDocument[]>([])
-  const [sessionDocuments, setSessionDocuments] = useState<UploadedDocument[]>([])
+  const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Handle file selection
@@ -330,16 +340,16 @@ export function DocumentUploadModal({
                </h4>
                <div className="space-y-2">
                  {sessionDocuments.map((doc) => (
-                   <div key={doc.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                     <div className="flex items-center gap-3">
-                       {getFileIcon(doc.original_name)}
-                       <div className="flex-1">
-                         <p className="font-medium text-sm text-gray-900">{doc.original_name}</p>
-                         <p className="text-xs text-gray-500">
-                           Available for AI analysis
-                         </p>
+                                        <div key={doc.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                       <div className="flex items-center gap-3">
+                         {getFileIcon(doc.original_name || doc.originalName || 'unknown')}
+                         <div className="flex-1">
+                           <p className="font-medium text-sm text-gray-900">{doc.original_name || doc.originalName || 'Unknown Document'}</p>
+                           <p className="text-xs text-gray-500">
+                             Available for AI analysis
+                           </p>
+                         </div>
                        </div>
-                     </div>
                      <Badge variant="secondary" className="text-xs">
                        Ready
                      </Badge>

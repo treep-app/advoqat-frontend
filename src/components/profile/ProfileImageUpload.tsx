@@ -96,8 +96,11 @@ export function ProfileImageUpload({
         setPreviewUrl(null)
         
         // Refresh navbar profile image
-        if (typeof window !== 'undefined' && (window as Window & { refreshNavbarProfileImage?: () => void }).refreshNavbarProfileImage) {
-          (window as Window & { refreshNavbarProfileImage?: () => void }).refreshNavbarProfileImage()
+        if (typeof window !== 'undefined') {
+          const refreshFn = (window as Window & { refreshNavbarProfileImage?: () => void }).refreshNavbarProfileImage
+          if (refreshFn) {
+            refreshFn()
+          }
         }
         
         toast({
@@ -153,8 +156,11 @@ export function ProfileImageUpload({
         setPreviewUrl(null)
         
         // Refresh navbar profile image
-        if (typeof window !== 'undefined' && (window as Window & { refreshNavbarProfileImage?: () => void }).refreshNavbarProfileImage) {
-          (window as Window & { refreshNavbarProfileImage?: () => void }).refreshNavbarProfileImage()
+        if (typeof window !== 'undefined') {
+          const refreshFn = (window as Window & { refreshNavbarProfileImage?: () => void }).refreshNavbarProfileImage
+          if (refreshFn) {
+            refreshFn()
+          }
         }
         
         toast({

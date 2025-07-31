@@ -109,21 +109,23 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error fetching profile:', error)
       // If profile fetch fails, create a basic profile from user data
-      setProfile({
-        id: user.id,
-        email: user.email || '',
-        name: user.user_metadata?.full_name || '',
-        phone: '',
-        address: '',
-        profile_image_url: undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      setFormData({
-        name: user.user_metadata?.full_name || '',
-        phone: '',
-        address: ''
-      })
+      if (user) {
+        setProfile({
+          id: user.id,
+          email: user.email || '',
+          name: user.user_metadata?.full_name || '',
+          phone: '',
+          address: '',
+          profile_image_url: undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        setFormData({
+          name: user.user_metadata?.full_name || '',
+          phone: '',
+          address: ''
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -377,7 +379,7 @@ export default function SettingsPage() {
                       <p className="font-medium">Account Status</p>
                       <p className="text-sm text-gray-500">Active</p>
                     </div>
-                    <Badge variant="success" className="bg-green-100 text-green-800">
+                    <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
                       Verified
                     </Badge>
                   </div>

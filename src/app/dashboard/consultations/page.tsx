@@ -283,7 +283,7 @@ export default function LegalConsultations() {
       // Clear URL parameters
       window.history.replaceState({}, '', '/dashboard/consultations')
     }
-  }, [])
+  }, [fetchConsultations, toast])
 
   // Handle booking step navigation
   const handleNextStep = async () => {

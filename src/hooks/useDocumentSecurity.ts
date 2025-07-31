@@ -48,8 +48,8 @@ export function useDocumentSecurity(isPaid: boolean) {
     // Disable text selection
     document.body.style.userSelect = 'none'
     document.body.style.webkitUserSelect = 'none'
-    document.body.style.mozUserSelect = 'none'
-    document.body.style.msUserSelect = 'none'
+    ;(document.body.style as CSSStyleDeclaration & { mozUserSelect?: string }).mozUserSelect = 'none'
+    ;(document.body.style as CSSStyleDeclaration & { msUserSelect?: string }).msUserSelect = 'none'
 
     // Cleanup
     return () => {
@@ -61,8 +61,8 @@ export function useDocumentSecurity(isPaid: boolean) {
       // Re-enable text selection
       document.body.style.userSelect = ''
       document.body.style.webkitUserSelect = ''
-      document.body.style.mozUserSelect = ''
-      document.body.style.msUserSelect = ''
+      ;(document.body.style as CSSStyleDeclaration & { mozUserSelect?: string }).mozUserSelect = ''
+      ;(document.body.style as CSSStyleDeclaration & { msUserSelect?: string }).msUserSelect = ''
     }
   }, [isPaid])
 } 

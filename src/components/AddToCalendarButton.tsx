@@ -10,7 +10,7 @@ interface AddToCalendarButtonProps {
   startTime: string; // Format: 'HH:MM'
   endTime?: string; // Format: 'HH:MM'
   location?: string;
-  options?: string[]; // Calendar options: 'Apple', 'Google', 'Outlook.com', 'Microsoft365', etc.
+  options?: ("Apple" | "Google" | "iCal" | "Microsoft365" | "Outlook.com" | "Yahoo" | "MicrosoftTeams")[];
 }
 
 /**
@@ -52,7 +52,6 @@ const AddToCalendarButton: React.FC<AddToCalendarButtonProps> = ({
       location,
       options,
       timeZone: "currentBrowser",
-      trigger: "click",
       iCalFileName: "legal-consultation",
     });
   };

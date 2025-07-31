@@ -259,7 +259,7 @@ export default function SignInPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
           <CardDescription>
-            Sign in to your LegaliQ account
+            Sign in to your advoqat account
           </CardDescription>
         </CardHeader>
         

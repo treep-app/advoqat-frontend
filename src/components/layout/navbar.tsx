@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ProfileImage } from '@/components/ui/profile-image'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +23,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { supabase } from '@/lib/supabase'
+import { BACKEND_URL } from '@/lib/config'
 import {
   Scale,
   Menu,
@@ -34,7 +35,8 @@ import {
   MessageSquare,
   ChevronDown,
   Brain,
-  Plus
+  Plus,
+  CreditCard
 } from 'lucide-react'
 import { User } from '@supabase/supabase-js'
 
@@ -46,11 +48,51 @@ interface NavbarProps {
 export function Navbar({ user, currentPage }: NavbarProps) {
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [profileImageLoading, setProfileImageLoading] = useState(false)
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/auth/signin')
   }
+
+  // Fetch user's profile image
+  const fetchProfileImage = useCallback(async () => {
+    if (!user?.id) return
+
+    setProfileImageLoading(true)
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/profile/image/${user.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.profileImage?.url) {
+          setProfileImage(data.profileImage.url)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching profile image:', error)
+    } finally {
+      setProfileImageLoading(false)
+    }
+  }, [user?.id])
+
+  // Fetch profile image when user changes
+  useEffect(() => {
+    fetchProfileImage()
+  }, [fetchProfileImage])
+
+  // Expose refresh function for other components
+  const refreshProfileImage = useCallback(() => {
+    console.log('🔄 Refreshing navbar profile image...')
+    fetchProfileImage()
+  }, [fetchProfileImage])
+
+  // Make refreshProfileImage available globally for other components
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as Window & { refreshNavbarProfileImage?: () => void }).refreshNavbarProfileImage = refreshProfileImage
+    }
+  }, [refreshProfileImage])
 
   const navigation = [
     { 
@@ -77,6 +119,18 @@ export function Navbar({ user, currentPage }: NavbarProps) {
       icon: MessageSquare,
       description: 'Connect with lawyers'
     },
+    { 
+      name: 'Payment History', 
+      href: '/dashboard/payment-history', 
+      icon: CreditCard,
+      description: 'Track transactions and billing'
+    },
+    { 
+      name: 'Settings', 
+      href: '/dashboard/settings', 
+      icon: Settings,
+      description: 'Manage your account and profile'
+    },
   ]
 
   const isActive = (href: string) => currentPage === href
@@ -93,7 +147,7 @@ export function Navbar({ user, currentPage }: NavbarProps) {
               </div>
               <div className="flex flex-col">
                 <span className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  LegaliQ
+                  advoqat
                 </span>
                 <span className="text-xs text-gray-500 font-medium">Legal Assistant</span>
               </div>
@@ -145,13 +199,12 @@ export function Navbar({ user, currentPage }: NavbarProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-50/80 transition-all duration-200">
-                  <Avatar className="h-8 w-8 ring-2 ring-gray-100">
-                    <AvatarImage src={user?.user_metadata?.avatar_url} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                      {user?.user_metadata?.full_name?.split(' ').map((n: string) => n[0]).join('') || 
-                       user?.email?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <ProfileImage 
+                    src={profileImage || user?.user_metadata?.avatar_url}
+                    name={user?.user_metadata?.full_name || user?.email}
+                    size="sm"
+                    className={`ring-2 ring-gray-100 ${profileImageLoading ? 'animate-pulse' : ''}`}
+                  />
                   <div className="hidden sm:flex flex-col items-start">
                     <span className="text-sm font-semibold text-gray-900">
                       {user?.user_metadata?.full_name || 'User'}
@@ -166,13 +219,11 @@ export function Navbar({ user, currentPage }: NavbarProps) {
               <DropdownMenuContent align="end" className="w-64 p-2">
                 <DropdownMenuLabel className="p-3">
                   <div className="flex items-center space-x-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={user?.user_metadata?.avatar_url} />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                        {user?.user_metadata?.full_name?.split(' ').map((n: string) => n[0]).join('') || 
-                         user?.email?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ProfileImage 
+                      src={profileImage || user?.user_metadata?.avatar_url}
+                      name={user?.user_metadata?.full_name || user?.email}
+                      size="md"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900 truncate">
                         {user?.user_metadata?.full_name || 'User'}
@@ -220,7 +271,7 @@ export function Navbar({ user, currentPage }: NavbarProps) {
                       <Scale className="h-6 w-6 text-white" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xl font-bold text-gray-900">LegaliQ</span>
+                      <span className="text-xl font-bold text-gray-900">advoqat</span>
                       <span className="text-xs text-gray-500 font-medium">Legal Assistant</span>
                     </div>
                   </SheetTitle>
@@ -267,13 +318,12 @@ export function Navbar({ user, currentPage }: NavbarProps) {
                     
                     {/* User Info */}
                     <div className="flex items-center space-x-3 px-4 py-3 bg-gray-50/50 rounded-xl">
-                      <Avatar className="h-12 w-12 ring-2 ring-gray-100">
-                        <AvatarImage src={user?.user_metadata?.avatar_url} />
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                          {user?.user_metadata?.full_name?.split(' ').map((n: string) => n[0]).join('') || 
-                           user?.email?.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <ProfileImage 
+                        src={profileImage || user?.user_metadata?.avatar_url}
+                        name={user?.user_metadata?.full_name || user?.email}
+                        size="lg"
+                        className="ring-2 ring-gray-100"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">
                           {user?.user_metadata?.full_name || 'User'}

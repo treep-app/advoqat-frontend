@@ -12,7 +12,7 @@ export default function FreelancerOnboardingPage() {
       <Card className="w-full max-w-xl shadow-xl">
         <CardHeader className="flex flex-col items-center">
           <Scale className="h-12 w-12 text-blue-600 mb-2" />
-          <CardTitle className="text-2xl font-bold text-blue-700 text-center">Welcome to LegaliQ, Lawyer!</CardTitle>
+          <CardTitle className="text-2xl font-bold text-blue-700 text-center">Welcome to advoqat, Lawyer!</CardTitle>
           <CardDescription className="text-center mt-2">
             Thank you for registering as a freelance lawyer.<br/>
             Your profile is under review. Here’s what happens next:

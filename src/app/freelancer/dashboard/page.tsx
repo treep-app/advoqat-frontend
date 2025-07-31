@@ -108,7 +108,7 @@ export default function FreelancerDashboard() {
       <aside className={`fixed z-40 md:static md:translate-x-0 top-0 left-0 h-full w-64 bg-white border-r flex flex-col py-6 px-4 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="flex items-center gap-2 mb-8">
           <Scale className="h-8 w-8 text-blue-600" />
-          <span className="text-xl font-bold text-gray-900">LegaliQ</span>
+                          <span className="text-xl font-bold text-gray-900">advoqat</span>
           <Button variant="ghost" size="icon" className="ml-auto md:hidden" onClick={() => setSidebarOpen(false)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -150,7 +150,17 @@ export default function FreelancerDashboard() {
             <Button variant="ghost" size="icon"><Search className="h-5 w-5 text-gray-500" /></Button>
             <Button variant="ghost" size="icon"><Plus className="h-5 w-5 text-blue-600" /></Button>
             <Button variant="ghost" size="icon"><RefreshCw className="h-5 w-5 text-gray-500" /></Button>
-            <Button variant={availability ? "outline" : "default"} size="sm" className={availability ? "text-green-700 border-green-200 bg-green-50" : "bg-gray-200 text-gray-600"} onClick={handleToggleAvailability} disabled={availabilityLoading}>
+            <Button 
+              variant={availability ? "outline" : "default"} 
+              size="sm" 
+              className={`transition-all duration-200 ${
+                availability 
+                  ? "text-green-700 border-green-200 bg-green-50 shadow-lg scale-105" 
+                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+              }`} 
+              onClick={handleToggleAvailability} 
+              disabled={availabilityLoading}
+            >
               <Circle className={`h-4 w-4 mr-1 ${availability ? "text-green-500" : "text-gray-400"}`} />
               {availabilityLoading ? "Updating..." : availability ? "Available" : "Offline"}
             </Button>

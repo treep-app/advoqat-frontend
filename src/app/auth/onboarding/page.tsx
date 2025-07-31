@@ -108,7 +108,7 @@ export default function OnboardingPage() {
           <div className="flex justify-center mb-4">
             <Scale className="h-12 w-12 text-blue-600" />
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome to LegaliQ!</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome to advoqat!</CardTitle>
           <CardDescription>
             Let&apos;s personalize your experience by selecting your legal interests
           </CardDescription>

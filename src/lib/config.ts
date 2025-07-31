@@ -22,6 +22,9 @@ export const API_ENDPOINTS = {
     SESSIONS: `${BACKEND_URL}/api/v1/ai/sessions`,
     SESSION: (id: string) => `${BACKEND_URL}/api/v1/ai/sessions/${id}`,
     MODELS: `${BACKEND_URL}/api/v1/ai/models`,
+    UPLOAD_DOCUMENTS: `${BACKEND_URL}/api/v1/ai/upload-documents`,
+    DOCUMENTS: (sessionId: string) => `${BACKEND_URL}/api/v1/ai/documents/${sessionId}`,
+    DELETE_DOCUMENT: (documentId: string) => `${BACKEND_URL}/api/v1/ai/documents/${documentId}`,
   },
   
   // Consultation endpoints
@@ -50,11 +53,24 @@ export const API_ENDPOINTS = {
     ONBOARDING: `${BACKEND_URL}/api/users/onboarding`,
   },
   
+  // Profile endpoints
+  PROFILE: {
+    UPLOAD_IMAGE: `${BACKEND_URL}/api/profile/upload-image`,
+    REMOVE_IMAGE: `${BACKEND_URL}/api/profile/remove-image`,
+    GET_IMAGE: (userId: string) => `${BACKEND_URL}/api/profile/image/${userId}`,
+  },
+  
   // Case endpoints
   CASES: {
     CREATE: `${BACKEND_URL}/api/cases`,
     MY_CASES: `${BACKEND_URL}/api/cases/my`,
     CASE: (id: string) => `${BACKEND_URL}/api/cases/${id}`,
+  },
+  
+  // Payment History endpoints
+  PAYMENT_HISTORY: {
+    LIST: `${BACKEND_URL}/api/payment-history`,
+    STATS: `${BACKEND_URL}/api/payment-history/stats`,
   },
 };
 

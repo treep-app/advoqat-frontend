@@ -52,7 +52,7 @@ const CheckoutForm = ({
         // Payment succeeded
         onSuccess();
       }
-    } catch (e) {
+    } catch {
       setErrorMessage('Payment failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -125,7 +125,7 @@ export default function StripeCheckoutModal({
   const options = clientSecret ? {
     clientSecret,
     appearance: {
-      theme: 'stripe',
+      theme: 'stripe' as const,
       variables: {
         colorPrimary: '#0070f3',
         colorBackground: '#ffffff',
@@ -142,7 +142,7 @@ export default function StripeCheckoutModal({
   }, [isOpen, clientSecret]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} forceMount={true}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

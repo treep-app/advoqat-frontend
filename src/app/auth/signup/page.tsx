@@ -170,7 +170,7 @@ export default function SignUpPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Create Your Account</CardTitle>
           <CardDescription>
-            Join LegaliQ and get instant legal guidance
+            Join advoqat and get instant legal guidance
           </CardDescription>
         </CardHeader>
         

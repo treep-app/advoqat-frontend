@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
-import StripeCheckoutModal from '@/components/StripeCheckoutModal'
+
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -102,7 +102,7 @@ interface ConsultationApiResponse {
 export default function LegalConsultations() {
   const router = useRouter()
   const { toast } = useToastContext()
-  const [tab, setTab] = useState('my') // Changed default to 'my' to show consultations first
+  const [tab, setTab] = useState('find') // Default to 'find' to show Find a Lawyer first
   const [lawyerSearch, setLawyerSearch] = useState('')
   const [showBooking, setShowBooking] = useState(false)
   const [selectedLawyer, setSelectedLawyer] = useState<Lawyer | null>(null)
@@ -118,7 +118,7 @@ export default function LegalConsultations() {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null)
   const [showReschedule, setShowReschedule] = useState(false)
   const [showFindLawyer, setShowFindLawyer] = useState(false)
-  const [bookingSuccess, setBookingSuccess] = useState(false)
+
 
   // Form states
   const [bookingDate, setBookingDate] = useState('')
@@ -131,11 +131,7 @@ export default function LegalConsultations() {
   const [rescheduleTime, setRescheduleTime] = useState('')
   
   // Stripe checkout modal state
-  const [stripeModalOpen, setStripeModalOpen] = useState(false)
-  const [stripeClientSecret, setStripeClientSecret] = useState('')
-  const [stripeSessionId, setStripeSessionId] = useState('')
-  const [stripeAmount, setStripeAmount] = useState(0)
-  const [stripeTitle, setStripeTitle] = useState('')
+
 
   // Data states
   const [user, setUser] = useState<SupabaseUser | null>(null)
@@ -249,6 +245,45 @@ export default function LegalConsultations() {
       fetchConsultations()
     }
   }, [user, fetchConsultations])
+
+  // Handle payment success redirect from Stripe
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const paymentStatus = urlParams.get('payment')
+    const sessionId = urlParams.get('session_id')
+    
+    if (paymentStatus === 'success' && sessionId) {
+      // Show success message
+      toast({
+        title: "Payment Successful",
+        description: "Your consultation has been booked and paid for.",
+      })
+      
+      // Reset booking state
+      setShowBooking(false)
+      setSelectedLawyer(null)
+      setBookingDate('')
+      setBookingTime('')
+      setBookingMethod('')
+      setBookingNotes('')
+      setBookingStep('details')
+      
+      // Refresh consultations
+      fetchConsultations()
+      
+      // Clear URL parameters
+      window.history.replaceState({}, '', '/dashboard/consultations')
+    } else if (paymentStatus === 'cancelled') {
+      toast({
+        title: 'Payment Cancelled',
+        description: 'Your payment was cancelled. You can try again when ready.',
+        variant: 'destructive'
+      })
+      
+      // Clear URL parameters
+      window.history.replaceState({}, '', '/dashboard/consultations')
+    }
+  }, [fetchConsultations, toast])
 
   // Handle booking step navigation
   const handleNextStep = async () => {
@@ -516,7 +551,7 @@ export default function LegalConsultations() {
             method: bookingMethod || data.method,
             fee: fee,
             userId: user.id,
-            useModal: true // Use modal checkout
+            useModal: false // Use page-based checkout
           });
           
           console.log("SessionData== ", sessionData);
@@ -526,33 +561,13 @@ export default function LegalConsultations() {
             console.error("Invalid session data returned:", sessionData);
             throw new Error("Could not create payment session. Please try again.");
           }
-          // Update modal state to trigger it to open
-          if (sessionData?.clientSecret) {
-            // Set the data first
-            setStripeClientSecret(sessionData.clientSecret);
-            setStripeSessionId(sessionData.sessionId);
-            setStripeAmount(data.fee?.total || 5000);
-            // Use the same lawyer name that was sent to the backend
-            setStripeTitle(`Legal Consultation with ${lawyerName}`);
-            
-            // Debug logging
-            console.log('Opening Stripe modal with:', {
-              clientSecret: sessionData.clientSecret.substring(0, 10) + '...',
-              sessionId: sessionData.sessionId,
-              amount: data.fee?.total || 5000,
-              title: `Legal Consultation with ${lawyerName}`
-            });
-            
-            // Force a small delay to ensure state is updated before showing modal
-            setTimeout(() => {
-              setStripeModalOpen(true);
-            }, 100);
-          } else if (sessionData.url) {
-            // Fallback to redirect if client secret isn't available but URL is
+          
+          // Redirect to Stripe checkout page
+          if (sessionData.url) {
+            console.log('Redirecting to Stripe checkout:', sessionData.url);
             window.location.href = sessionData.url;
           } else {
-            // No client secret or URL available
-            throw new Error("Invalid payment session. Missing client secret and URL.");
+            throw new Error("Invalid payment session. Missing checkout URL.");
           }
         } catch (stripeError) {
           console.error('Error setting up payment:', stripeError);
@@ -609,31 +624,9 @@ export default function LegalConsultations() {
     }
   }
   
-  // Handle payment success
-  const handlePaymentSuccess = () => {
-    // Show success message
-    toast({
-      title: "Payment Successful",
-      description: "Your consultation has been booked and paid for.",
-    });
-    
-    // Mark booking as successful
-    setBookingSuccess(true);
-    
-    // Refresh consultations list
-    fetchConsultations();
-  };
+
   
-  // Handle payment modal close
-  const handlePaymentClose = () => {
-    console.log('Payment modal closing, bookingSuccess:', bookingSuccess);
-    setStripeModalOpen(false);
-    if (bookingSuccess) {
-      setShowBooking(false);
-      setBookingStep('details');
-      fetchConsultations();
-    }
-  }
+
 
   // Handle proceeding to payment step
   const handleProceedToPayment = () => {
@@ -1595,7 +1588,7 @@ export default function LegalConsultations() {
                     </h4>
                     <p className="text-sm mt-2">
                       The lawyer will call you at the scheduled time. Please ensure your contact 
-                      details are up to date and you're available to take the call.
+                      details are up to date and you&apos;re available to take the call.
                     </p>
                   </div>
                 )}
@@ -1692,7 +1685,7 @@ export default function LegalConsultations() {
                     </h4>
                     <p className="text-sm mt-2">
                       The lawyer will call you at the scheduled time. Make sure your phone details 
-                      are up to date. You'll receive an email with the confirmation details.
+                      are up to date. You&apos;ll receive an email with the confirmation details.
                     </p>
                   </div>
                 )}
@@ -1817,63 +1810,84 @@ export default function LegalConsultations() {
 
         {/* Lawyer Profile Modal */}
         <Dialog open={showLawyerProfile} onOpenChange={setShowLawyerProfile}>
-          <DialogContent className="sm:max-w-[600px]">
-            <div className="flex flex-col items-center space-y-6">
-              <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                <AvatarImage src={profileLawyer?.avatarUrl} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl">
-                  {profileLawyer?.name?.split(' ').map((n) => n[0]).join('')}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-center">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+            <div className="flex flex-col max-h-[85vh]">
+              {/* Sticky Header */}
+              <div className="sticky top-0 bg-white z-10 pb-4 border-b border-gray-200">
+                <div className="flex flex-col items-center space-y-4">
+                  <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                    <AvatarImage src={profileLawyer?.avatarUrl} />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl">
+                      {profileLawyer?.name?.split(' ').map((n) => n[0]).join('')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="text-center">
                 <h3 className="text-2xl font-bold text-gray-900">{profileLawyer ? getLawyerName(profileLawyer) : 'Legal Professional'}</h3>
                 <p className="text-gray-600 mt-1">
                   {profileLawyer ? getLawyerExpertise(profileLawyer).join(', ') : 'Specialized in legal matters'}
                 </p>
                 <div className="flex items-center justify-center gap-4 mt-3">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full">
                     <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                    <span className="font-medium">{profileLawyer?.performance_score || 'N/A'}/5</span>
+                    <span className="font-medium text-yellow-700">{profileLawyer?.performance_score || 'N/A'}/5</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 bg-green-50 px-3 py-1 rounded-full">
                     <TrendingUp className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">{profileLawyer?.experience || 'Experienced'} years</span>
+                    <span className="font-medium text-green-700">{profileLawyer?.experience || 'Experienced'} years</span>
                   </div>
+                  {profileLawyer?.is_verified && (
+                    <div className="flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full">
+                      <Award className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium text-blue-700">Verified</span>
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              <div className="w-full space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            </div>
+            
+            {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-2 pt-4">
+                <div className="w-full space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <h4 className="font-semibold text-gray-900 flex items-center gap-2">
                       <CalendarDays className="h-4 w-4" />
-                      Availability
+                      Availability ({profileLawyer?.availability?.length || 0} slots)
                     </h4>
-                    <div className="rounded-lg bg-gray-50 p-4">
+                    <div className="rounded-lg bg-gray-50 p-4 max-h-48 overflow-y-auto">
                       {Array.isArray(profileLawyer?.availability) && profileLawyer.availability.length > 0 ? (
                         <ul className="space-y-2 text-sm">
-                          {profileLawyer.availability.slice(0, 3).map((slot, i) => (
-                            <li key={i} className="flex items-center">
-                              <Clock4 className="mr-2 h-4 w-4 text-gray-400" />
-                              {new Date(slot).toLocaleString([], {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                          {profileLawyer.availability.map((slot, i) => (
+                            <li key={i} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 transition-colors">
+                              <div className="flex items-center">
+                                <Clock4 className="mr-2 h-4 w-4 text-gray-400" />
+                                <span className="font-medium">
+                                  {new Date(slot).toLocaleDateString([], {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              </div>
+                              <span className="text-xs text-gray-600">
+                                {new Date(slot).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
                             </li>
                           ))}
-                          {profileLawyer.availability.length > 3 && (
-                            <li className="text-xs text-gray-500">
-                              +{profileLawyer.availability.length - 3} more slots available
-                            </li>
-                          )}
                         </ul>
                       ) : (
-                        <p className="text-sm text-gray-500">
-                          No availability slots
-                        </p>
+                        <div className="text-center py-6">
+                          <CalendarDays className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">
+                            No availability slots
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Check back later for updated availability
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1882,9 +1896,15 @@ export default function LegalConsultations() {
                   <div className="space-y-3">
                     <h4 className="font-semibold text-gray-900 flex items-center gap-2">
                       <MessageSquare className="h-4 w-4" />
-                      Active Consultations
+                      Active Consultations ({(() => {
+                        const activeConsultations = consultations.filter(c => 
+                          c.lawyerName === (profileLawyer ? getLawyerName(profileLawyer) : '') && 
+                          c.status === 'confirmed'
+                        )
+                        return activeConsultations.length
+                      })()})
                     </h4>
-                    <div className="rounded-lg bg-blue-50 p-4">
+                    <div className="rounded-lg bg-blue-50 p-4 max-h-60 overflow-y-auto">
                       {(() => {
                         const activeConsultations = consultations.filter(c => 
                           c.lawyerName === (profileLawyer ? getLawyerName(profileLawyer) : '') && 
@@ -1895,7 +1915,7 @@ export default function LegalConsultations() {
                           return (
                             <div className="space-y-2">
                               {activeConsultations.map((consultation, index) => (
-                                <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
+                                <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors">
                                   <div className="flex items-center gap-3">
                                     <div className="p-2 bg-blue-100 rounded-lg">
                                       {getMethodIcon(consultation.method)}
@@ -1906,6 +1926,9 @@ export default function LegalConsultations() {
                                       </p>
                                       <p className="text-xs text-gray-600">
                                         {new Date(consultation.datetime).toLocaleTimeString()}
+                                      </p>
+                                      <p className="text-xs text-blue-600 font-medium">
+                                        {consultation.method === 'video' ? 'Video Call' : consultation.method === 'chat' ? 'Live Chat' : 'Phone Call'}
                                       </p>
                                     </div>
                                   </div>
@@ -1932,6 +1955,17 @@ export default function LegalConsultations() {
                                         Chat
                                       </Button>
                                     )}
+                                    {consultation.method === 'phone' && (
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        onClick={() => window.open(`tel:${profileLawyer?.phone}`, '_blank')}
+                                        className="text-green-600 hover:text-green-700"
+                                      >
+                                        <Phone className="h-3 w-3 mr-1" />
+                                        Call
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -1939,9 +1973,15 @@ export default function LegalConsultations() {
                           )
                         } else {
                           return (
-                            <p className="text-sm text-gray-500">
-                              No active consultations with this lawyer
-                            </p>
+                            <div className="text-center py-8">
+                              <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-sm text-gray-500">
+                                No active consultations with this lawyer
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                Book a consultation to see it here
+                              </p>
+                            </div>
                           )
                         }
                       })()}
@@ -2173,6 +2213,8 @@ export default function LegalConsultations() {
                   <BookOpen className="h-4 w-4 mr-2" />
                   Book Consultation
                 </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </DialogContent>
@@ -2274,16 +2316,7 @@ export default function LegalConsultations() {
         </Dialog>
       </div>
       
-      {/* Stripe Checkout Modal */}
-      <StripeCheckoutModal
-        isOpen={stripeModalOpen}
-        clientSecret={stripeClientSecret}
-        sessionId={stripeSessionId}
-        amount={stripeAmount}
-        title={stripeTitle}
-        onSuccess={handlePaymentSuccess}
-        onClose={handlePaymentClose}
-      />
+
       
       {/* Cancel Booking Confirmation Dialog */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>

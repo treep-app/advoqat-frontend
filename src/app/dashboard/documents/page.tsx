@@ -34,11 +34,12 @@ import {
   Lock,
   DollarSign,
   AlertCircle,
-  XCircle
+  XCircle,
+  RefreshCw
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { API_ENDPOINTS } from '@/lib/config'
-import jsPDF from 'jspdf';
+
 import { User } from '@supabase/supabase-js';
 
 interface DocumentTemplate {
@@ -172,7 +173,8 @@ export default function DocumentsPage() {
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedDocumentForPayment, setSelectedDocumentForPayment] = useState<DocumentRecord | null>(null)
-  const [downloadingDocument, setDownloadingDocument] = useState<string | null>(null)
+  const [showGeneratedDocumentPaymentModal, setShowGeneratedDocumentPaymentModal] = useState(false)
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -222,6 +224,36 @@ export default function DocumentsPage() {
     if (user) {
       fetchDocuments()
     }
+  }, [user])
+
+  // Handle payment success for generated documents
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const paymentStatus = searchParams.get('payment')
+    const sessionId = searchParams.get('session_id')
+    const isGenerated = searchParams.get('generated')
+
+    if (paymentStatus === 'success' && sessionId && isGenerated === 'true') {
+      handleGeneratedDocumentPaymentSuccess(sessionId)
+    } else if (paymentStatus === 'cancelled') {
+      toast({
+        title: 'Payment Cancelled',
+        description: 'Your payment was cancelled. You can try again when ready.',
+        variant: 'destructive'
+      })
+    }
+  }, [])
+
+  // Refresh documents when the page becomes visible (e.g., after returning from payment)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        fetchDocuments()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [user])
 
   const handleTemplateSelect = (template: DocumentTemplate) => {
@@ -278,11 +310,16 @@ export default function DocumentsPage() {
       }
 
       const data = await response.json()
-      setGeneratedDocument(data.document)
+      
+      // Store the document content with a slight delay to prevent easy access
+      setTimeout(() => {
+        setGeneratedDocument(data.document)
+      }, 100)
+      
       toast({
         title: 'Document Generated',
-        description: 'Your document has been generated successfully!',
-        variant: 'success'
+        description: 'Your document has been generated successfully. Complete payment to download.',
+        variant: 'default'
       })
     } catch (err) {
       console.error('Error generating document:', err)
@@ -299,34 +336,15 @@ export default function DocumentsPage() {
   const handleDownload = () => {
     if (!generatedDocument) return
     
-    const blob = new Blob([generatedDocument], { type: 'text/plain' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${selectedTemplate?.name || 'document'}.txt`
-    document.body.appendChild(a)
-    a.click()
-    window.URL.revokeObjectURL(url)
-    document.body.removeChild(a)
+    // Show payment modal for generated document
+    setShowGeneratedDocumentPaymentModal(true)
   }
 
   const handleCopy = async () => {
     if (!generatedDocument) return
     
-    try {
-      await navigator.clipboard.writeText(generatedDocument)
-      toast({
-        title: 'Copied!',
-        description: 'Document copied to clipboard',
-        variant: 'success'
-      })
-    } catch {
-      toast({
-        title: 'Copy Failed',
-        description: 'Failed to copy document',
-        variant: 'destructive'
-      })
-    }
+    // Show payment modal for generated document
+    setShowGeneratedDocumentPaymentModal(true)
   }
 
   // Payment-related functions
@@ -372,60 +390,101 @@ export default function DocumentsPage() {
     }
   }
 
-  const handleSecureDownload = async (doc: DocumentRecord) => {
-    if (!user?.id) return
-
-    // Check payment status first
-    if (doc.payment_status !== 'paid') {
-      handlePaymentRequired(doc)
-      return
-    }
-
-    setDownloadingDocument(doc.id)
+  const createGeneratedDocumentPaymentSession = async () => {
+    if (!user?.id || !selectedTemplate) return
+    
+    setPaymentLoading('generated')
     try {
-      const response = await fetch(`${API_ENDPOINTS.DOCUMENTS.DOWNLOAD(doc.id)}?userId=${user.id}`, {
-        method: 'GET',
+      // Create a temporary document record for payment
+      const response = await fetch(API_ENDPOINTS.DOCUMENTS.CREATE_PAYMENT('temp'), {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          userId: user.id,
+          templateId: selectedTemplate.id,
+          formData: formData,
+          generatedDocument: generatedDocument
+        }),
       })
 
       if (!response.ok) {
-        if (response.status === 403) {
-          handlePaymentRequired(doc)
-          return
-        }
-        throw new Error('Failed to download document')
+        throw new Error('Failed to create payment session')
       }
 
       const data = await response.json()
       
-      // Create and download PDF
-      const pdf = new jsPDF()
-      pdf.setFont('courier', 'normal')
-      pdf.setFontSize(12)
-      pdf.text(data.document.content, 10, 20)
-      pdf.save(`${doc.template_id || 'document'}-${doc.created_at ? new Date(doc.created_at).toISOString().slice(0,10) : ''}.pdf`)
-      
-      toast({
-        title: 'Download Complete',
-        description: `Document downloaded successfully (Download #${data.document.downloadCount})`,
-        variant: 'success'
-      })
-      
-      // Refresh documents to update download count
-      await fetchDocuments()
+      // Redirect to Stripe checkout
+      if (data.url) {
+        window.location.href = data.url
+      }
     } catch (error) {
-      console.error('Error downloading document:', error)
+      console.error('Error creating payment session:', error)
       toast({
-        title: 'Download Failed',
-        description: 'Failed to download document. Please try again.',
+        title: 'Payment Error',
+        description: 'Failed to create payment session. Please try again.',
         variant: 'destructive'
       })
     } finally {
-      setDownloadingDocument(null)
+      setPaymentLoading(null)
     }
   }
+
+  const handleGeneratedDocumentPaymentSuccess = async (sessionId: string) => {
+    if (!user?.id || !selectedTemplate) return
+    
+    setPaymentLoading('verifying')
+    try {
+      // Create the actual document record after successful payment
+      const response = await fetch(API_ENDPOINTS.DOCUMENTS.GENERATE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          templateId: selectedTemplate.id,
+          formData: formData,
+          paymentSessionId: sessionId
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create document after payment')
+      }
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast({
+          title: 'Payment Successful',
+          description: 'Your document has been created and is ready for download.',
+          variant: 'default'
+        })
+        
+        // Clear the generated document preview and refresh documents
+        setGeneratedDocument(null)
+        setSelectedTemplate(null)
+        setFormData({})
+        await fetchDocuments()
+        
+        // Clear URL parameters
+        window.history.replaceState({}, '', '/dashboard/documents')
+      }
+    } catch (error) {
+      console.error('Error creating document after payment:', error)
+      toast({
+        title: 'Error',
+        description: 'Payment was successful but there was an error creating your document. Please contact support.',
+        variant: 'destructive'
+      })
+    } finally {
+      setPaymentLoading(null)
+    }
+  }
+
+
 
   const getPaymentStatusBadge = (paymentStatus: string) => {
     switch (paymentStatus) {
@@ -546,7 +605,11 @@ export default function DocumentsPage() {
                           variant={viewMode === 'grid' ? 'default' : 'ghost'}
                           size="sm"
                           onClick={() => setViewMode('grid')}
-                          className="h-8 w-8 p-0"
+                          className={`h-8 w-8 p-0 transition-all duration-200 ${
+                            viewMode === 'grid' 
+                              ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg scale-105' 
+                              : 'hover:bg-gray-100'
+                          }`}
                         >
                           <Grid3X3 className="h-4 w-4" />
                         </Button>
@@ -554,7 +617,11 @@ export default function DocumentsPage() {
                           variant={viewMode === 'list' ? 'default' : 'ghost'}
                           size="sm"
                           onClick={() => setViewMode('list')}
-                          className="h-8 w-8 p-0"
+                          className={`h-8 w-8 p-0 transition-all duration-200 ${
+                            viewMode === 'list' 
+                              ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg scale-105' 
+                              : 'hover:bg-gray-100'
+                          }`}
                         >
                           <List className="h-4 w-4" />
                         </Button>
@@ -718,19 +785,34 @@ export default function DocumentsPage() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="bg-gray-50 rounded-lg p-6 max-h-96 overflow-y-auto">
-                          <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
-                            {generatedDocument}
+                        <div className="bg-gray-50 rounded-lg p-6 max-h-96 overflow-y-auto document-secure relative">
+                          <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-red-400/20 pointer-events-none z-10"></div>
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                            <div className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-lg transform rotate-12">
+                              PAYMENT REQUIRED
+                            </div>
+                          </div>
+                          <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono relative z-0">
+                            {generatedDocument ? generatedDocument.split('').map((char, index) => (
+                              <span key={index} style={{ opacity: 0.7 }}>{char}</span>
+                            )) : ''}
                           </pre>
                         </div>
                         <div className="flex gap-3 mt-6">
-                          <Button onClick={handleDownload} className="flex items-center gap-2">
-                            <Download className="h-4 w-4" />
-                            Download
+                          <Button 
+                            onClick={handleDownload} 
+                            className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700"
+                          >
+                            <Lock className="h-4 w-4" />
+                            Pay to Download
                           </Button>
-                          <Button variant="outline" onClick={handleCopy} className="flex items-center gap-2">
-                            <Copy className="h-4 w-4" />
-                            Copy
+                          <Button 
+                            variant="outline" 
+                            onClick={handleCopy} 
+                            className="flex items-center gap-2 border-yellow-600 text-yellow-600 hover:bg-yellow-50"
+                          >
+                            <Lock className="h-4 w-4" />
+                            Pay to Copy
                           </Button>
                         </div>
                       </CardContent>
@@ -756,12 +838,32 @@ export default function DocumentsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchDocuments}
+                    disabled={docsLoading}
+                    className="bg-white/80 backdrop-blur-sm border-gray-200"
+                  >
+                    {docsLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Refresh
+                      </>
+                    )}
+                  </Button>
                   <div className="flex bg-white/80 backdrop-blur-sm border border-gray-200 rounded-lg p-1">
                     <Button
                       variant={viewMode === 'grid' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewMode('grid')}
-                      className="h-8 w-8 p-0"
+                      className={`h-8 w-8 p-0 transition-all duration-200 ${
+                        viewMode === 'grid' 
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg scale-105' 
+                          : 'hover:bg-gray-100'
+                      }`}
                     >
                       <Grid3X3 className="h-4 w-4" />
                     </Button>
@@ -769,7 +871,11 @@ export default function DocumentsPage() {
                       variant={viewMode === 'list' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewMode('list')}
-                      className="h-8 w-8 p-0"
+                      className={`h-8 w-8 p-0 transition-all duration-200 ${
+                        viewMode === 'list' 
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg scale-105' 
+                          : 'hover:bg-gray-100'
+                      }`}
                     >
                       <List className="h-4 w-4" />
                     </Button>
@@ -854,6 +960,12 @@ export default function DocumentsPage() {
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Clock className="h-4 w-4" />
                             <span>Created {new Date(doc.created_at).toLocaleString()}</span>
+                            {doc.payment_status !== 'paid' && (
+                              <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200">
+                                <Lock className="h-3 w-3 mr-1" />
+                                Payment Required
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2 text-gray-600">
@@ -871,23 +983,31 @@ export default function DocumentsPage() {
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => setGeneratedDocument(doc.generated_document)}
+                              onClick={() => {
+                                if (doc.payment_status === 'paid') {
+                                  router.push(`/dashboard/documents/${doc.id}`)
+                                } else {
+                                  handlePaymentRequired(doc)
+                                }
+                              }}
                               className="flex-1"
+                              disabled={doc.payment_status !== 'paid'}
                             >
                               <Eye className="h-4 w-4 mr-2" />
-                              View
+                              {doc.payment_status === 'paid' ? 'View' : 'Pay to View'}
                             </Button>
                             <Button 
                               size="sm" 
                               variant={doc.payment_status === 'paid' ? 'default' : 'outline'}
-                              onClick={() => handleSecureDownload(doc)}
-                              disabled={downloadingDocument === doc.id || paymentLoading === doc.id}
+                              onClick={() => doc.payment_status === 'paid' ? router.push(`/dashboard/documents/${doc.id}`) : handlePaymentRequired(doc)}
+                              disabled={paymentLoading === doc.id}
                               className={doc.payment_status === 'paid' ? 'bg-green-600 hover:bg-green-700' : ''}
                             >
-                              {downloadingDocument === doc.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : doc.payment_status === 'paid' ? (
-                                <Download className="h-4 w-4" />
+                              {doc.payment_status === 'paid' ? (
+                                <>
+                                  <Download className="h-4 w-4 mr-1" />
+                                  <span className="text-xs">Download</span>
+                                </>
                               ) : (
                                 <>
                                   <Lock className="h-4 w-4 mr-1" />
@@ -899,13 +1019,18 @@ export default function DocumentsPage() {
                               size="sm" 
                               variant="outline" 
                               onClick={async () => { 
-                                await navigator.clipboard.writeText(doc.generated_document)
-                                toast({
-                                  title: 'Copied!',
-                                  description: 'Document copied to clipboard',
-                                  variant: 'success'
-                                })
+                                if (doc.payment_status === 'paid') {
+                                  await navigator.clipboard.writeText(doc.generated_document)
+                                  toast({
+                                    title: 'Copied!',
+                                    description: 'Document copied to clipboard',
+                                    variant: 'success'
+                                  })
+                                } else {
+                                  handlePaymentRequired(doc)
+                                }
                               }}
+                              disabled={doc.payment_status !== 'paid'}
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
@@ -998,6 +1123,92 @@ export default function DocumentsPage() {
                     <>
                       <CreditCard className="h-4 w-4 mr-2" />
                       Pay ${(selectedDocumentForPayment.document_fee / 100).toFixed(2)}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Generated Document Payment Modal */}
+      {showGeneratedDocumentPaymentModal && selectedTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-semibold">Payment Required</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowGeneratedDocumentPaymentModal(false)}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>
+                Complete payment to download your generated document
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg text-white text-xl">
+                    {getTemplateIcon(selectedTemplate.id)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{selectedTemplate.name}</h3>
+                    <p className="text-sm text-gray-600">
+                      Generated just now
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold">Document Fee:</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    $9.99
+                  </span>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Secure payment processing via Stripe</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Instant download after payment</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Unlimited downloads once paid</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => setShowGeneratedDocumentPaymentModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  onClick={createGeneratedDocumentPaymentSession}
+                  disabled={paymentLoading === 'generated'}
+                >
+                  {paymentLoading === 'generated' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Pay $9.99
                     </>
                   )}
                 </Button>

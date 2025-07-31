@@ -1,510 +1,436 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+import { User as SupabaseUser } from '@supabase/supabase-js'
+import { AppLayout } from '@/components/layout/app-layout'
+import { ProfileImageUpload } from '@/components/profile/ProfileImageUpload'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { useToastContext } from '@/components/ui/toast-context'
 import { 
-  Scale, 
   User, 
-  Settings, 
   Shield, 
-  Lock, 
-  Trash2, 
+  Bell, 
+  Settings,
   Save,
-  ArrowLeft,
-  AlertTriangle,
-  CheckCircle
+  Edit3
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { User as SupabaseUser } from '@supabase/supabase-js';
+import { API_ENDPOINTS } from '@/lib/config'
+
+interface UserProfile {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  address?: string
+  profile_image_url?: string
+  created_at: string
+  updated_at: string
+}
 
 export default function SettingsPage() {
-  const router = useRouter()
   const [user, setUser] = useState<SupabaseUser | null>(null)
+  const { toast } = useToastContext()
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-
-  // Form states
-  const [profile, setProfile] = useState({
-    fullName: '',
-    email: '',
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
     phone: '',
-    company: '',
-    jobTitle: ''
+    address: ''
   })
 
-  const [preferences, setPreferences] = useState({
-    emailNotifications: true,
-    pushNotifications: false,
-    marketingEmails: false,
-    legalUpdates: true,
-    documentReminders: true
-  })
+  // Get user and fetch profile
+  const getUserAndProfile = useCallback(async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      
+      if (error || !user) {
+        console.error('Auth error:', error)
+        return
+      }
+      
+      setUser(user)
+      
+      // Fetch profile data
+      const response = await fetch(`${API_ENDPOINTS.USERS.PROFILE}?userId=${user.id}`)
 
-  const [security, setSecurity] = useState({
-    twoFactorEnabled: false,
-    sessionTimeout: '24h'
-  })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.profile) {
+          setProfile(data.profile)
+          setFormData({
+            name: data.profile.name || '',
+            phone: data.profile.phone || '',
+            address: data.profile.address || ''
+          })
+        } else {
+          // If no profile exists yet, create a basic one
+          setProfile({
+            id: user.id,
+            email: user.email || '',
+            name: user.user_metadata?.full_name || '',
+            phone: '',
+            address: '',
+            profile_image_url: undefined,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          setFormData({
+            name: user.user_metadata?.full_name || '',
+            phone: '',
+            address: ''
+          })
+        }
+      } else {
+        // If response is not ok, create a basic profile from user data
+        setProfile({
+          id: user.id,
+          email: user.email || '',
+          name: user.user_metadata?.full_name || '',
+          phone: '',
+          address: '',
+          profile_image_url: undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        setFormData({
+          name: user.user_metadata?.full_name || '',
+          phone: '',
+          address: ''
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+      // If profile fetch fails, create a basic profile from user data
+      if (user) {
+        setProfile({
+          id: user.id,
+          email: user.email || '',
+          name: user.user_metadata?.full_name || '',
+          phone: '',
+          address: '',
+          profile_image_url: undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        setFormData({
+          name: user.user_metadata?.full_name || '',
+          phone: '',
+          address: ''
+        })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    const getUser = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser()
-        
-        if (error || !user) {
-          router.push('/auth/signin')
-          return
-        }
-        
-        setUser(user)
-        
-        // Load user profile data
-        setProfile({
-          fullName: user.user_metadata?.full_name || '',
-          email: user.email || '',
-          phone: user.user_metadata?.phone || '',
-          company: user.user_metadata?.company || '',
-          jobTitle: user.user_metadata?.job_title || ''
-        })
-        
-        setLoading(false)
-      } catch (err) {
-        console.error('Error getting user:', err)
-        router.push('/auth/signin')
-      }
-    }
+    getUserAndProfile()
+  }, [getUserAndProfile])
 
-    getUser()
-  }, [router])
+  // Handle form changes
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
-  const handleProfileUpdate = async () => {
+  // Save profile changes
+  const saveProfile = async () => {
+    if (!user?.id) return
+
     setSaving(true)
-    setMessage(null)
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          full_name: profile.fullName,
-          phone: profile.phone,
-          company: profile.company,
-          job_title: profile.jobTitle
-        }
+      const response = await fetch(API_ENDPOINTS.USERS.UPDATE, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          ...formData
+        })
       })
 
-      if (error) {
-        setMessage({ type: 'error', text: error.message })
+      if (response.ok) {
+        const data = await response.json()
+        setProfile(data.profile)
+        setIsEditing(false)
+        
+        toast({
+          title: 'Profile Updated',
+          description: 'Your profile has been updated successfully',
+          variant: 'success'
+        })
       } else {
-        setMessage({ type: 'success', text: 'Profile updated successfully!' })
+        throw new Error('Failed to update profile')
       }
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to update profile' })
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      toast({
+        title: 'Update Failed',
+        description: 'Failed to update profile. Please try again.',
+        variant: 'destructive'
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  const handleAccountDeletion = async () => {
-    if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      return
-    }
+  // Handle image upload
+  const handleImageUploaded = (imageUrl: string) => {
+    setProfile(prev => prev ? { ...prev, profile_image_url: imageUrl } : null)
+  }
 
-    setSaving(true)
-    setMessage(null)
-
-    try {
-      if (!user) {
-        setMessage({ type: 'error', text: 'User not found.' });
-        setSaving(false);
-        return;
-      }
-      const { error } = await supabase.auth.admin.deleteUser(user.id)
-      
-      if (error) {
-        setMessage({ type: 'error', text: error.message })
-      } else {
-        router.push('/')
-      }
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to delete account' })
-    } finally {
-      setSaving(false)
-    }
+  // Handle image removal
+  const handleImageRemoved = () => {
+    setProfile(prev => prev ? { ...prev, profile_image_url: undefined } : null)
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <Scale className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
-          <p className="text-gray-600">Loading...</p>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push('/dashboard')}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back to Dashboard</span>
-              </Button>
-              <div className="flex items-center space-x-2">
-                <Scale className="h-8 w-8 text-blue-600" />
-                <span className="text-xl font-bold text-gray-900">LegaliQ</span>
-              </div>
+    <AppLayout>
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+              <p className="text-gray-600 mt-2">Manage your account settings and profile</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <User className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-700">
-                {(user as { user_metadata?: { full_name?: string; email?: string } })?.user_metadata?.full_name || (user as { email?: string })?.email}
-              </span>
+            <Badge variant="outline" className="text-sm">
+              {user?.email}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Profile Image Section */}
+            <div>
+              <ProfileImageUpload
+                userId={user?.id || ''}
+                currentImageUrl={profile?.profile_image_url}
+                onImageUploaded={handleImageUploaded}
+                onImageRemoved={handleImageRemoved}
+              />
             </div>
-          </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600">
-            Manage your account settings and preferences
-          </p>
-        </div>
-
-        {message && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center space-x-2 ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-700' 
-              : 'bg-red-50 border border-red-200 text-red-700'
-          }`}>
-            {message.type === 'success' ? (
-              <CheckCircle className="h-5 w-5" />
-            ) : (
-              <AlertTriangle className="h-5 w-5" />
-            )}
-            <span>{message.text}</span>
-          </div>
-        )}
-
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile" className="flex items-center space-x-2">
-              <User className="h-4 w-4" />
-              <span>Profile</span>
-            </TabsTrigger>
-            <TabsTrigger value="preferences" className="flex items-center space-x-2">
-              <Settings className="h-4 w-4" />
-              <span>Preferences</span>
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span>Security</span>
-            </TabsTrigger>
-            <TabsTrigger value="account" className="flex items-center space-x-2">
-              <Lock className="h-4 w-4" />
-              <span>Account</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <User className="h-5 w-5" />
-                  <span>Profile Information</span>
-                </CardTitle>
-                <CardDescription>
-                  Update your personal information and contact details
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Profile Information Section */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-blue-600" />
+                    Profile Information
+                  </CardTitle>
+                  <CardDescription>
+                    Update your personal information and contact details
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      value={profile.fullName}
-                      onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                      placeholder="Enter your full name"
-                    />
+                    <Label htmlFor="name">Full Name</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        disabled={!isEditing}
+                        placeholder="Enter your full name"
+                      />
+                      {!isEditing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditing(true)}
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Email (Read-only) */}
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email Address</Label>
                     <Input
                       id="email"
-                      value={profile.email}
+                      value={profile?.email || ''}
                       disabled
                       className="bg-gray-50"
                     />
-                    <p className="text-xs text-gray-500">Email cannot be changed</p>
+                    <p className="text-xs text-gray-500">
+                      Email address cannot be changed
+                    </p>
                   </div>
+
+                  {/* Phone */}
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
                     <Input
                       id="phone"
-                      value={profile.phone}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      disabled={!isEditing}
                       placeholder="Enter your phone number"
                     />
                   </div>
+
+                  {/* Address */}
                   <div className="space-y-2">
-                    <Label htmlFor="company">Company</Label>
+                    <Label htmlFor="address">Address</Label>
                     <Input
-                      id="company"
-                      value={profile.company}
-                      onChange={(e) => setProfile({ ...profile, company: e.target.value })}
-                      placeholder="Enter your company name"
+                      id="address"
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      disabled={!isEditing}
+                      placeholder="Enter your address"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="jobTitle">Job Title</Label>
-                    <Input
-                      id="jobTitle"
-                      value={profile.jobTitle}
-                      onChange={(e) => setProfile({ ...profile, jobTitle: e.target.value })}
-                      placeholder="Enter your job title"
-                    />
-                  </div>
-                </div>
-                <Button 
-                  onClick={handleProfileUpdate}
-                  disabled={saving}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          {/* Preferences Tab */}
-          <TabsContent value="preferences">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Settings className="h-5 w-5" />
-                  <span>Notification Preferences</span>
-                </CardTitle>
-                <CardDescription>
-                  Choose how you want to receive notifications and updates
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base">Email Notifications</Label>
-                      <p className="text-sm text-gray-500">Receive important updates via email</p>
+                  {/* Action Buttons */}
+                  {isEditing && (
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        onClick={saveProfile}
+                        disabled={saving}
+                        className="flex-1"
+                      >
+                        {saving ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditing(false)
+                          // Reset form data to original values
+                          setFormData({
+                            name: profile?.name || '',
+                            phone: profile?.phone || '',
+                            address: profile?.address || ''
+                          })
+                        }}
+                      >
+                        Cancel
+                      </Button>
                     </div>
-                    <Switch
-                      checked={preferences.emailNotifications}
-                      onCheckedChange={(checked) => 
-                        setPreferences({ ...preferences, emailNotifications: checked })
-                      }
-                    />
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base">Push Notifications</Label>
-                      <p className="text-sm text-gray-500">Receive notifications in your browser</p>
-                    </div>
-                    <Switch
-                      checked={preferences.pushNotifications}
-                      onCheckedChange={(checked) => 
-                        setPreferences({ ...preferences, pushNotifications: checked })
-                      }
-                    />
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base">Marketing Emails</Label>
-                      <p className="text-sm text-gray-500">Receive promotional content and offers</p>
-                    </div>
-                    <Switch
-                      checked={preferences.marketingEmails}
-                      onCheckedChange={(checked) => 
-                        setPreferences({ ...preferences, marketingEmails: checked })
-                      }
-                    />
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base">Legal Updates</Label>
-                      <p className="text-sm text-gray-500">Get notified about legal changes and updates</p>
-                    </div>
-                    <Switch
-                      checked={preferences.legalUpdates}
-                      onCheckedChange={(checked) => 
-                        setPreferences({ ...preferences, legalUpdates: checked })
-                      }
-                    />
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base">Document Reminders</Label>
-                      <p className="text-sm text-gray-500">Get reminders for document deadlines</p>
-                    </div>
-                    <Switch
-                      checked={preferences.documentReminders}
-                      onCheckedChange={(checked) => 
-                        setPreferences({ ...preferences, documentReminders: checked })
-                      }
-                    />
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={() => setMessage({ type: 'success', text: 'Preferences saved!' })}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Preferences
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  )}
+                </CardContent>
+              </Card>
 
-          {/* Security Tab */}
-          <TabsContent value="security">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5" />
-                  <span>Security Settings</span>
-                </CardTitle>
-                <CardDescription>
-                  Manage your account security and authentication settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base">Two-Factor Authentication</Label>
-                      <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
-                    </div>
-                    <Switch
-                      checked={security.twoFactorEnabled}
-                      onCheckedChange={(checked) => 
-                        setSecurity({ ...security, twoFactorEnabled: checked })
-                      }
-                    />
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="space-y-2">
-                    <Label className="text-base">Session Timeout</Label>
-                    <select
-                      value={security.sessionTimeout}
-                      onChange={(e) => setSecurity({ ...security, sessionTimeout: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="1h">1 hour</option>
-                      <option value="8h">8 hours</option>
-                      <option value="24h">24 hours</option>
-                      <option value="7d">7 days</option>
-                    </select>
-                    <p className="text-sm text-gray-500">How long to keep you signed in</p>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={() => setMessage({ type: 'success', text: 'Security settings updated!' })}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Security Settings
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Account Tab */}
-          <TabsContent value="account">
-            <div className="space-y-6">
+              {/* Account Information */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Lock className="h-5 w-5" />
-                    <span>Account Management</span>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-green-600" />
+                    Account Information
                   </CardTitle>
                   <CardDescription>
-                    Manage your account settings and data
+                    Your account details and membership information
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-base">Change Password</Label>
-                    <p className="text-sm text-gray-500">Update your account password</p>
-                    <Button variant="outline" size="sm">
-                      Change Password
-                    </Button>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Member Since</p>
+                      <p className="font-medium">
+                        {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Last Updated</p>
+                      <p className="font-medium">
+                        {profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
                   </div>
                   
                   <Separator />
                   
-                  <div className="space-y-2">
-                    <Label className="text-base">Export Data</Label>
-                    <p className="text-sm text-gray-500">Download a copy of your data</p>
-                    <Button variant="outline" size="sm">
-                      Export Data
-                    </Button>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="space-y-2">
-                    <Label className="text-base">Delete Account</Label>
-                    <p className="text-sm text-gray-500">Permanently delete your account and all data</p>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={handleAccountDeletion}
-                      disabled={saving}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      {saving ? 'Deleting...' : 'Delete Account'}
-                    </Button>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Account Status</p>
+                      <p className="text-sm text-gray-500">Active</p>
+                    </div>
+                    <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                      Verified
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+          </div>
+
+          {/* Additional Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-gray-600" />
+                Additional Settings
+              </CardTitle>
+              <CardDescription>
+                Manage notifications and privacy settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Bell className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="font-medium">Email Notifications</p>
+                      <p className="text-sm text-gray-500">Receive updates about consultations and documents</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline">Enabled</Badge>
+                </div>
+                
+                <Separator />
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Shield className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="font-medium">Privacy Settings</p>
+                      <p className="text-sm text-gray-500">Control who can see your profile information</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    Configure
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </AppLayout>
   )
 } 

@@ -257,7 +257,7 @@ export default function FreelancerRegisterPage() {
         <CardHeader className="flex flex-col items-center">
           <Scale className="h-12 w-12 text-blue-600 mb-2" />
           <CardTitle className="text-2xl font-bold text-blue-700">Register as a Lawyer</CardTitle>
-          <CardDescription className="text-center">Join LegaliQ and start accepting legal cases online.</CardDescription>
+          <CardDescription className="text-center">Join advoqat and start accepting legal cases online.</CardDescription>
         </CardHeader>
         <CardContent>
           {step === "form" && (

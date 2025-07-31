@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { atcb_action } from 'add-to-calendar-button';
 import { Button } from './ui/button';
-import { Calendar, CalendarPlus } from 'lucide-react';
+import { CalendarPlus } from 'lucide-react';
 
 interface AddToCalendarButtonProps {
   name: string;
@@ -10,7 +10,7 @@ interface AddToCalendarButtonProps {
   startTime: string; // Format: 'HH:MM'
   endTime?: string; // Format: 'HH:MM'
   location?: string;
-  options?: string[]; // Calendar options: 'Apple', 'Google', 'Outlook.com', 'Microsoft365', etc.
+  options?: ("Apple" | "Google" | "iCal" | "Microsoft365" | "Outlook.com" | "Yahoo" | "MicrosoftTeams")[];
 }
 
 /**
@@ -52,7 +52,6 @@ const AddToCalendarButton: React.FC<AddToCalendarButtonProps> = ({
       location,
       options,
       timeZone: "currentBrowser",
-      trigger: "click",
       iCalFileName: "legal-consultation",
     });
   };

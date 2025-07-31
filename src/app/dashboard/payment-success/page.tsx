@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AppLayout } from '@/components/layout/app-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,12 +10,19 @@ import { verifyPaymentSession } from '@/lib/stripe'
 import { CheckCircle, Calendar, ArrowRight } from 'lucide-react'
 import AddToCalendarButton from '@/components/AddToCalendarButton'
 
-export default function PaymentSuccess() {
+interface ConsultationDetails {
+  id: string
+  lawyerName: string
+  datetime: string
+  method: string
+}
+
+function PaymentSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToastContext()
   const [loading, setLoading] = useState(true)
-  const [consultationDetails, setConsultationDetails] = useState<any>(null)
+  const [consultationDetails, setConsultationDetails] = useState<ConsultationDetails | null>(null)
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id')
@@ -144,7 +151,7 @@ export default function PaymentSuccess() {
                 <div className="flex flex-col space-y-3">
                   {/* Add to Calendar Button */}
                   <div className="mb-4 p-3 border border-blue-100 rounded-lg bg-blue-50">
-                    <p className="text-sm mb-3 text-blue-700">Don't forget your appointment! Add it to your calendar:</p>
+                    <p className="text-sm mb-3 text-blue-700">Don&apos;t forget your appointment! Add it to your calendar:</p>
                     <AddToCalendarButton
                       name={`Legal Consultation with ${consultationDetails.lawyerName}`}
                       description={`Legal consultation via ${consultationDetails.method}. Please be ready 5 minutes before the scheduled time.`}
@@ -187,5 +194,21 @@ export default function PaymentSuccess() {
         </Card>
       </div>
     </AppLayout>
+  )
+}
+
+export default function PaymentSuccess() {
+  return (
+    <Suspense fallback={
+      <AppLayout>
+        <div className="container max-w-6xl py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+          </div>
+        </div>
+      </AppLayout>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   )
 }

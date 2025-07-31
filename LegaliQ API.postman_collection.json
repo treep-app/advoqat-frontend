@@ -1,8 +1,8 @@
 {
 	"info": {
 		"_postman_id": "4baa53dc-69d9-4dd4-bb8e-8d844ad2ade6",
-		"name": "LegaliQ API",
-		"description": "Postman collection for all freelancer, case management, document annotation, and payment endpoints in LegaliQ backend.",
+		  "name": "advoqat API",
+  "description": "Postman collection for all freelancer, case management, document annotation, and payment endpoints in advoqat backend.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "2252846"
 	},

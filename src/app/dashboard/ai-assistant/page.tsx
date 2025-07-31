@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
@@ -21,16 +21,19 @@ import {
   ChevronRight,
   Copy,
   HelpCircle,
-
   FileText,
   Users,
   Home,
   Building2,
-  Briefcase
+  Briefcase,
+  Upload,
+  MessageSquare
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { API_ENDPOINTS } from '@/lib/config'
 import { User as SupabaseUser } from '@supabase/supabase-js'
+import { DocumentUploadModal } from '@/components/ai/DocumentUploadModal'
+import { DocumentChat } from '@/components/ai/DocumentChat'
 
 interface ChatMessage {
   id?: string
@@ -39,6 +42,16 @@ interface ChatMessage {
   created_at?: string
   tokens_used?: number
   model_used?: string
+}
+
+interface Document {
+  id: string
+  original_name?: string
+  originalName?: string
+  extracted_text?: string
+  extractedText?: string
+  created_at?: string
+  createdAt?: string
 }
 
 interface ChatSession {
@@ -73,6 +86,10 @@ export default function AIAssistantPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [showChat, setShowChat] = useState(false)
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [showDocumentUploadModal, setShowDocumentUploadModal] = useState(false)
+  const [showDocumentChat, setShowDocumentChat] = useState(false)
+  const [sessionDocuments, setSessionDocuments] = useState<Document[]>([])
+  const [hasDocuments, setHasDocuments] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -100,7 +117,30 @@ export default function AIAssistantPage() {
     if (user) {
       fetchSessions()
     }
-  }, [user])
+  }, [user, fetchSessions])
+
+  // Fetch session documents when session changes
+  useEffect(() => {
+    if (currentSession && user) {
+      fetchSessionDocuments()
+    }
+  }, [currentSession, user, fetchSessionDocuments])
+
+  const fetchSessionDocuments = useCallback(async () => {
+    if (!currentSession || !user) return
+
+    try {
+      const response = await fetch(`${API_ENDPOINTS.AI_ASSISTANT.DOCUMENTS(currentSession)}?userId=${user.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        const documents = data.documents || []
+        setSessionDocuments(documents)
+        setHasDocuments(documents.length > 0)
+      }
+    } catch (error) {
+      console.error('Error fetching session documents:', error)
+    }
+  }, [currentSession, user])
 
   useEffect(() => {
     scrollToBottom()
@@ -110,7 +150,7 @@ export default function AIAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     if (!user) return
     
     try {
@@ -125,7 +165,7 @@ export default function AIAssistantPage() {
     } catch (error) {
       console.error('Error fetching sessions:', error)
     }
-  }
+  }, [user])
 
   const fetchSession = async (sessionId: string) => {
     if (!user) return
@@ -169,7 +209,8 @@ export default function AIAssistantPage() {
         body: JSON.stringify({
           sessionId: currentSession,
           message: userMessage,
-          userId: user.id
+          userId: user.id,
+          hasDocuments: hasDocuments
         }),
       })
 
@@ -264,6 +305,22 @@ export default function AIAssistantPage() {
           <p className="text-gray-600">Loading AI Assistant...</p>
         </div>
       </div>
+    )
+  }
+
+  // Show document chat if active
+  if (showDocumentChat) {
+    return (
+      <AppLayout currentPage="/dashboard/ai-assistant">
+        <div className="h-screen">
+          <DocumentChat
+            documents={sessionDocuments}
+            sessionId={currentSession}
+            userId={user?.id || ''}
+            onClose={() => setShowDocumentChat(false)}
+          />
+        </div>
+      </AppLayout>
     )
   }
 
@@ -423,6 +480,34 @@ export default function AIAssistantPage() {
         {/* Chat Interface */}
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
+            {/* Document Context Banner */}
+            {hasDocuments && (
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-blue-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-blue-900">Document Analysis Mode</h3>
+                      <p className="text-sm text-blue-700">
+                        AI is analyzing {sessionDocuments.length} document(s) for contextual responses
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDocumentUploadModal(true)}
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Manage Documents
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Messages Area */}
             <div className="h-[600px] overflow-y-auto p-6 space-y-6">
               {messages.length === 0 ? (
@@ -435,7 +520,7 @@ export default function AIAssistantPage() {
                   </h3>
                   <p className="text-gray-600 max-w-md mb-6">
                     I&apos;m here to help you with legal questions and provide educational guidance. 
-                    Ask me anything about legal matters!
+                    Upload your documents for personalized analysis or ask me anything about legal matters!
                   </p>
                   <div className="flex flex-wrap gap-3 justify-center">
                     <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
@@ -449,6 +534,13 @@ export default function AIAssistantPage() {
                     </Badge>
                     <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
                       &quot;Business formation&quot;
+                    </Badge>
+                    <Badge 
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-blue-50 px-3 py-1 border-blue-200 text-blue-600"
+                      onClick={() => setShowDocumentUploadModal(true)}
+                    >
+                      📄 Upload Documents
                     </Badge>
                   </div>
                 </div>
@@ -480,6 +572,12 @@ export default function AIAssistantPage() {
                           : 'bg-gray-50 text-gray-900 border border-gray-100'
                       }`}>
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        {msg.role === 'assistant' && hasDocuments && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
+                            <FileText className="h-3 w-3" />
+                            <span>Analyzing your documents for context</span>
+                          </div>
+                        )}
                         {msg.role === 'assistant' && (
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
                             <div className="flex items-center gap-4">
@@ -528,15 +626,26 @@ export default function AIAssistantPage() {
 
             {/* Input Area */}
             <div className="border-t border-gray-100 p-6 bg-gray-50/50">
-              <div className="flex gap-3">
-                <Input
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Ask me any legal question..."
-                  className="flex-1 bg-white border-gray-200 focus:border-blue-500 rounded-xl shadow-sm"
-                  disabled={sending}
-                />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 relative">
+                  <Input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    placeholder={hasDocuments ? "Ask about your documents or any legal question..." : "Ask me any legal question..."}
+                    className="bg-white border-gray-200 focus:border-blue-500 rounded-xl shadow-sm pr-12"
+                    disabled={sending}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDocumentUploadModal(true)}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600"
+                    disabled={sending}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                </div>
                 <Button 
                   onClick={sendMessage}
                   disabled={!message.trim() || sending}
@@ -549,13 +658,67 @@ export default function AIAssistantPage() {
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 mt-3 text-center">
-                This AI provides educational legal information only. For specific legal advice, consult a qualified attorney.
-              </p>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {hasDocuments && (
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-500" />
+                      <span className="text-xs text-blue-600 font-medium">
+                        {sessionDocuments.length} document(s) loaded
+                      </span>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDocumentUploadModal(true)}
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50 text-xs"
+                  >
+                    <Upload className="h-3 w-3 mr-1" />
+                    Upload Documents
+                  </Button>
+                  {hasDocuments && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDocumentChat(true)}
+                      className="text-green-600 border-green-200 hover:bg-green-50 text-xs"
+                    >
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      Chat with Documents
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">
+                  This AI provides educational legal information only. For specific legal advice, consult a qualified attorney.
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Document Upload Modal */}
+      <DocumentUploadModal
+        isOpen={showDocumentUploadModal}
+        onClose={() => setShowDocumentUploadModal(false)}
+        sessionId={currentSession}
+        userId={user?.id || ''}
+        onDocumentsUploaded={(documents) => {
+          setSessionDocuments(prev => [...prev, ...documents])
+          setHasDocuments(true)
+        }}
+        onDocumentsChanged={() => {
+          fetchSessionDocuments()
+        }}
+        onStartDocumentChat={(documents) => {
+          setSessionDocuments(documents)
+          setHasDocuments(true)
+          setShowDocumentUploadModal(false)
+          setShowDocumentChat(true)
+        }}
+      />
     </AppLayout>
   )
 } 

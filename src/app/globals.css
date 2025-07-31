@@ -120,3 +120,139 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Security measures for unpaid documents */
+.document-secure {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Additional security measures */
+  -webkit-filter: blur(0.5px);
+  filter: blur(0.5px);
+  pointer-events: none;
+}
+
+.document-secure * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent screenshots (CSS-only approach - not 100% effective but adds deterrent) */
+.document-secure {
+  -webkit-filter: blur(0.5px);
+  filter: blur(0.5px);
+}
+
+/* Disable right-click context menu */
+.document-secure {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Prevent drag and drop */
+.document-secure {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}
+
+/* Disable text selection */
+.document-secure::selection {
+  background: transparent;
+}
+
+.document-secure::-moz-selection {
+  background: transparent;
+}
+
+/* Add watermark for unpaid documents */
+.document-watermark {
+  position: relative;
+}
+
+.document-watermark::before {
+  content: "PAYMENT REQUIRED";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  font-size: 2rem;
+  font-weight: bold;
+  color: rgba(255, 0, 0, 0.3);
+  z-index: 10;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Blur content for unpaid documents */
+.document-blur {
+  filter: blur(3px);
+  pointer-events: none;
+}
+
+/* Prevent printing of unpaid documents */
+@media print {
+  .document-secure {
+    display: none !important;
+  }
+}
+
+/* Enhanced Tab Selection Styles */
+.tabs-trigger-selected {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  border: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.tabs-trigger-selected:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  transform: scale(1.05);
+}
+
+.tabs-trigger-unselected {
+  background: transparent;
+  color: #6b7280;
+  transition: all 0.2s ease-in-out;
+}
+
+.tabs-trigger-unselected:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .tabs-trigger-selected,
+  .tabs-trigger-unselected {
+    transition: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .tabs-trigger-selected {
+    background: #000;
+    color: #fff;
+    border: 2px solid #000;
+  }
+  
+  .tabs-trigger-unselected {
+    background: #fff;
+    color: #000;
+    border: 2px solid #000;
+  }
+}

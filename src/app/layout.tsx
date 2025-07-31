@@ -16,12 +16,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LegaliQ - AI-Powered Legal Assistant | Get Instant Legal Advice",
+  title: "advoqat - AI-Powered Legal Assistant | Get Instant Legal Advice",
   description: "Get instant legal guidance, generate professional documents, and connect with affordable legal professionals. No more expensive lawyers or complex legal jargon.",
   keywords: "legal advice, AI legal assistant, legal documents, legal consultation, consumer rights, tenant rights, employment law",
-  authors: [{ name: "LegaliQ Team" }],
+  authors: [{ name: "advoqat Team" }],
   openGraph: {
-    title: "LegaliQ - AI-Powered Legal Assistant",
+    title: "advoqat - AI-Powered Legal Assistant",
     description: "Get instant legal guidance and professional document generation",
     type: "website",
   },

@@ -52,7 +52,7 @@ const CheckoutForm = ({
         // Payment succeeded
         onSuccess();
       }
-    } catch (e) {
+    } catch {
       setErrorMessage('Payment failed. Please try again.');
     } finally {
       setIsLoading(false);

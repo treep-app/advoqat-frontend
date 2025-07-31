@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { atcb_action } from 'add-to-calendar-button';
 import { Button } from './ui/button';
-import { Calendar, CalendarPlus } from 'lucide-react';
+import { CalendarPlus } from 'lucide-react';
 
 interface AddToCalendarButtonProps {
   name: string;

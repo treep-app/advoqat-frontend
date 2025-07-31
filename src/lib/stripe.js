@@ -1,4 +1,5 @@
 import { loadStripe } from '@stripe/stripe-js';
+import { BACKEND_URL } from './config';
 
 // Initialize Stripe with your publishable key
 // This is a public key and safe to include in client-side code
@@ -39,7 +40,7 @@ export const createCheckoutSession = async ({
   useModal = true // Whether to use modal checkout or redirect
 }) => {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/create-checkout-session`, {
+    const response = await fetch(`${BACKEND_URL}/api/payments/create-checkout-session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -86,7 +87,7 @@ export const createCheckoutSession = async ({
 // Verify a payment session (after returning from Stripe)
 export const verifyPaymentSession = async (sessionId) => {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify/${sessionId}`, {
+    const response = await fetch(`${BACKEND_URL}/api/payments/verify/${sessionId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

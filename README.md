@@ -1,4 +1,4 @@
-# LegaliQ - AI-Powered Legal Assistant
+# advoqat - AI-Powered Legal Assistant
 
 A comprehensive legal assistance platform built with Next.js, Supabase, and Tailwind CSS.
 

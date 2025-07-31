@@ -66,7 +66,7 @@ export default function Home() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
               <Scale className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">LegaliQ</span>
+                              <span className="text-xl font-bold text-gray-900">Advoqat</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors">Features</a>
@@ -274,7 +274,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              How LegaliQ Works
+              How Advoqat Works
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Three simple steps to get the legal help you need
@@ -355,7 +355,7 @@ export default function Home() {
             Ready to Protect Your Rights?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join thousands of users who trust LegaliQ for their legal needs. 
+            Join thousands of users who trust Advoqat for their legal needs. 
             Start with a free consultation today.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -390,7 +390,7 @@ export default function Home() {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <Scale className="h-6 w-6 text-blue-400" />
-                <span className="text-lg font-bold">LegaliQ</span>
+                <span className="text-lg font-bold">Advoqat</span>
               </div>
               <p className="text-gray-400">
                 Making legal assistance accessible, affordable, and efficient for everyone.
@@ -429,7 +429,7 @@ export default function Home() {
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 LegaliQ. All rights reserved.</p>
+            <p>&copy; 2024 Advoqat. All rights reserved.</p>
           </div>
         </div>
       </footer>

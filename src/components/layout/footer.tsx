@@ -49,7 +49,7 @@ export function Footer() {
               <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg">
                 <Scale className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold">LegaliQ</span>
+                              <span className="text-xl font-bold">advoqat</span>
             </div>
             <p className="text-gray-300 mb-6 max-w-md">
               AI-powered legal assistance platform that connects you with qualified legal professionals 
@@ -60,7 +60,7 @@ export function Footer() {
             <div className="space-y-3">
               <div className="flex items-center space-x-3 text-gray-300">
                 <Mail className="h-4 w-4" />
-                <span>support@legaliq.com</span>
+                <span>support@advoqat.com</span>
               </div>
               <div className="flex items-center space-x-3 text-gray-300">
                 <Phone className="h-4 w-4" />
@@ -136,7 +136,7 @@ export function Footer() {
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             {/* Copyright */}
             <div className="text-gray-300 text-sm">
-              © {currentYear} LegaliQ. All rights reserved.
+              © {currentYear} advoqat. All rights reserved.
             </div>
 
             {/* Social Links */}

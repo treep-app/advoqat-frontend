@@ -57,7 +57,7 @@ import { logger } from '@/lib/utils'
 interface Lawyer {
   id: string | number
   name: string
-  user_id?: string | number // Backend uses this as the lawyerId in booking API
+  user_id?: string | number // Legacy field, not used in booking API
   specialty?: string[]
   expertise_areas?: string[] // New field for expertise areas
   email?: string
@@ -407,7 +407,7 @@ export default function LegalConsultations() {
       const payload = {
         userId: user.id, // Include userId in the request
         clientId: user.id, // Some APIs expect clientId instead of userId
-        lawyerId: selectedLawyer?.user_id || selectedLawyer?.id, // Backend expects user_id, not id
+        lawyerId: selectedLawyer?.id, // Backend expects freelancer id (not user_id)
         datetime: bookingDatetime,
         date: bookingDate, // Add date separately
         time: bookingTime, // Add time separately

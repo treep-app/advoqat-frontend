@@ -10,7 +10,7 @@ export const getSiteUrl = () => {
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     return process.env.NEXT_PUBLIC_SITE_URL
   }
-  return 'https://app.advoqat.com'
+  return 'https://legaliq.onrender.com'
 }
 
 // Production logger utility

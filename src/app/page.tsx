@@ -44,7 +44,7 @@ export default function Home() {
         {/* Fallback link in case redirect doesn't work */}
         {redirectAttempted && (
           <div className="mt-4">
-            <p className="text-sm text-gray-500 mb-2">If you're not redirected automatically:</p>
+            <p className="text-sm text-gray-500 mb-2">If you&apos;re not redirected automatically:</p>
             <Link 
               href="/auth/signin" 
               className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

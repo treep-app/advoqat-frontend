@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Navbar } from './navbar'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
+import { logger } from '@/lib/utils'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -20,7 +21,7 @@ export function AppLayout({ children, currentPage }: AppLayoutProps) {
         const { data: { user } } = await supabase.auth.getUser()
         setUser(user)
       } catch (error) {
-        console.error('Error fetching user:', error)
+        logger.error('Error fetching user:', error)
       } finally {
         setLoading(false)
       }

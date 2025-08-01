@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Scale, Mail, Lock, User, Phone, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { API_ENDPOINTS } from '@/lib/config'
+import { logger } from '@/lib/utils'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -86,10 +87,10 @@ export default function SignUpPage() {
       })
 
       if (signUpError) {
-        console.log('signUpError', signUpError)
+        logger.log('signUpError', signUpError)
         setError(signUpError.message)
       } else {
-        console.log('signUpData', signUpData)
+        logger.log('signUpData', signUpData)
         
         // Check if user was created (even if not confirmed)
         if (signUpData.user) {
@@ -104,10 +105,10 @@ export default function SignUpPage() {
             })
           })
 
-          console.log('sync response status:', syncRes.status)
+          logger.log('sync response status:', syncRes.status)
           if (!syncRes.ok) {
             const errorText = await syncRes.text()
-            console.log('sync error:', errorText)
+            logger.log('sync error:', errorText)
             setError('Signup succeeded but failed to save user in database. Please contact support.')
             setLoading(false)
             return
@@ -126,7 +127,7 @@ export default function SignUpPage() {
         }
       }
     } catch (error) {
-      console.log('catch error:', error)
+      logger.log('catch error:', error)
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
@@ -154,7 +155,7 @@ export default function SignUpPage() {
         // The actual user sync will happen in the callback route
       }
     } catch (error) {
-      console.log('Google signup error:', error)
+      logger.log('Google signup error:', error)
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)

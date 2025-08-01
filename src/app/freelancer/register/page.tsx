@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Scale } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/config";
+import { logger } from '@/lib/utils'
 
 
 const EXPERTISE_OPTIONS = [
@@ -185,7 +186,7 @@ export default function FreelancerRegisterPage() {
       }
       if (syncRes.status === 409 && syncErr.error) {
       
-        console.log(`Registration failed: ${data.error}`);
+        logger.log(`Registration failed: ${data.error}`);
         setError(syncErr.error);
       } else if (syncErr.error) {
         setError(syncErr.error);
@@ -232,7 +233,7 @@ export default function FreelancerRegisterPage() {
       setTimeout(() => router.push("/freelancer/onboarding"), 3000);
     } else {
       const data = await regRes.json();
-      console.log(`Registration failed: ${data.error}`);
+      logger.log(`Registration failed: ${data.error}`);
       setError(data.error || "Registration failed. Please try again.");
     }
   }

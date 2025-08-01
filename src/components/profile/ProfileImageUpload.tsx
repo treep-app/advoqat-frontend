@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
+import { logger } from '@/lib/utils'
 
 interface ProfileImageUploadProps {
   userId: string
@@ -121,7 +122,7 @@ export function ProfileImageUpload({
         }
       }
     } catch (error) {
-      console.error('Upload error:', error)
+      logger.error('Upload error:', error)
       toast({
         title: 'Upload Failed',
         description: 'Failed to upload image. Please try again.',
@@ -172,7 +173,7 @@ export function ProfileImageUpload({
         throw new Error(data.error || 'Remove failed')
       }
     } catch (error) {
-      console.error('Remove error:', error)
+      logger.error('Remove error:', error)
       toast({
         title: 'Remove Failed',
         description: 'Failed to remove image. Please try again.',

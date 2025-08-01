@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { logger } from '@/lib/utils'
 
 export default function Home() {
   const router = useRouter()
@@ -17,9 +18,9 @@ export default function Home() {
         router.push('/auth/signin')
       } catch (err) {
         setError('Redirect failed')
-        console.error('Redirect error:', err)
+        logger.error('Redirect error:', err)
       }
-    }, 500)
+    }, 10)
 
     return () => clearTimeout(timer)
   }, [router])

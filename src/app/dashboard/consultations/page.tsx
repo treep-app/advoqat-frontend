@@ -51,6 +51,7 @@ import {
   Check
 } from 'lucide-react'
 import { User as SupabaseUser } from '@supabase/supabase-js'
+import { logger } from '@/lib/utils'
 
 // Types
 interface Lawyer {
@@ -178,7 +179,6 @@ export default function LegalConsultations() {
   const fetchConsultations = useCallback(async () => {
     const currentUser = userRef.current
     if (!currentUser) {
-      console.log('No current user, skipping consultation fetch')
       return
     }
     
@@ -187,12 +187,8 @@ export default function LegalConsultations() {
     
     try {
       const url = `${API_ENDPOINTS.CONSULTATIONS.MY_CONSULTATIONS}?userId=${currentUser.id}`
-      console.log('Fetching consultations from URL:', url)
-      console.log('Fetching consultations for user:', currentUser.id)
       
       const response = await fetch(url)
-      console.log('Response status:', response.status)
-      console.log('Response ok:', response.ok)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -201,18 +197,13 @@ export default function LegalConsultations() {
       let data
       try {
         data = await response.json()
-        console.log('Consultations API response:', data)
-        console.log('Response type:', typeof data)
-        console.log('Is array:', Array.isArray(data))
-      } catch (jsonError) {
-        console.error('Error parsing JSON response:', jsonError)
+      } catch {
         throw new Error('Failed to parse server response')
       }
       
       // Ensure data is an array and process each consultation
       const processedConsultations = Array.isArray(data) ? data
         .map((consultation: ConsultationApiResponse) => {
-          console.log('Processing consultation:', consultation)
           return {
             id: consultation.id,
             lawyerName: consultation.lawyerName || consultation.freelancer_name || 'Unknown Lawyer',
@@ -225,14 +216,11 @@ export default function LegalConsultations() {
         })
         .filter(consultation => {
           const isValid = consultation.id && consultation.lawyerName
-          console.log('Consultation valid:', isValid, consultation)
           return isValid
         }) : []
       
-      console.log('Processed consultations:', processedConsultations)
       setConsultations(processedConsultations)
     } catch (error) {
-      console.error('Error fetching consultations:', error)
       setConsultationsError(error instanceof Error ? error.message : 'Failed to load consultations.')
     } finally {
       setLoadingConsultations(false)
@@ -320,7 +308,7 @@ export default function LegalConsultations() {
         
         setBookingStep('review')
       } catch (error) {
-        console.error('Error getting consultation fees:', error)
+        logger.error('Error getting consultation fees:', error)
         toast({
           title: 'Error',
           description: 'Could not fetch consultation pricing. Please try again.',
@@ -337,7 +325,7 @@ export default function LegalConsultations() {
         await handleSubmitBooking()
         // Note: We don't need to set booking loading to false here as the page will redirect
       } catch (error) {
-        console.error('Booking/payment error:', error)
+        logger.error('Booking/payment error:', error)
         toast({
           title: 'Payment Failed',
           description: 'There was an issue processing your booking. Please try again.',
@@ -437,16 +425,6 @@ export default function LegalConsultations() {
         throw new Error("Please select both date and time for the consultation");
       }
       
-      console.log("Booking payload:", payload);
-      
-      // Do NOT convert lawyerId to a number since it could be a user ID string
-      // The backend controller looks for a user_id, which might be a string
-      // Keep the lawyerId as-is to preserve its correct format
-      console.log("Selected lawyer full object:", selectedLawyer);
-      
-      // Log the exact format we're sending
-      console.log("Sending formatted payload:", JSON.stringify(payload));
-      
       // Call API to book consultation - matching Postman request exactly
       const response = await fetch(`${API_ENDPOINTS.CONSULTATIONS.BOOK}`, {
         method: "POST",
@@ -456,9 +434,6 @@ export default function LegalConsultations() {
         },
         body: JSON.stringify(payload)
       });
-      
-      // Log response for debugging
-      console.log("Booking response status:", response.status);
 
       if (!response.ok) {
         // Try to get detailed error information
@@ -467,22 +442,17 @@ export default function LegalConsultations() {
           const responseClone = response.clone();
           // Try to get the response as text first
           const responseText = await responseClone.text();
-          console.error("API response text:", responseText);
           
           try {
             // Then try to parse as JSON if possible
             const errorData = JSON.parse(responseText);
-            console.error("API error details:", errorData);
             throw new Error(errorData.message || errorData.error || "Failed to book consultation");
-          } catch (jsonError) {
+          } catch {
             // If JSON parsing fails, use the text response
-            console.error("JSON parse error:", jsonError);
             throw new Error(`Server error (${response.status}): ${responseText || response.statusText}`);
           }
-        } catch (parseError) {
+        } catch {
           // Handle case where response cannot be read at all
-          console.error("API response status:", response.status, response.statusText);
-          console.error("Response read error:", parseError);
           throw new Error(`Server error (${response.status}): ${response.statusText}`);
         }
       }
@@ -490,9 +460,7 @@ export default function LegalConsultations() {
       let data;
       try {
         data = await response.json();
-        console.log("Full API response:", data);
-      } catch (jsonError) {
-        console.error("Error parsing booking response JSON:", jsonError);
+      } catch {
         throw new Error("Could not parse server response");
       }
 
@@ -506,7 +474,6 @@ export default function LegalConsultations() {
         
         // Ensure lawyer data is available
         if (!selectedLawyer || !selectedLawyer.name) {
-          console.error("Missing lawyer information for payment", selectedLawyer);
           toast({
             title: "Error",
             description: "Missing lawyer information. Please try again.",
@@ -523,13 +490,9 @@ export default function LegalConsultations() {
         try {
           // Import the stripe utility dynamically to avoid issues with SSR
           const { createCheckoutSession } = await import('@/lib/stripe');
-          console.log("Selected lawyer:", selectedLawyer);
-          console.log("Booking datetime:", bookingDatetime);
-          console.log("Booking method:", bookingMethod);
           
           // Check if we have a valid consultation ID from the booking response
           if (!data.consultationId) {
-            console.error("Missing consultationId in booking response");
             throw new Error("Invalid booking data returned from server. ConsultationId is required for payment.");
           }
           
@@ -539,7 +502,6 @@ export default function LegalConsultations() {
             : (data.fee?.total || 5000);
             
           if (!fee || isNaN(fee) || fee <= 0) {
-            console.error("Invalid fee in booking response:", data.fee);
             throw new Error("Invalid consultation fee. Please try again.");
           }
           
@@ -554,23 +516,18 @@ export default function LegalConsultations() {
             useModal: false // Use page-based checkout
           });
           
-          console.log("SessionData== ", sessionData);
-          
           // Validate sessionData
           if (!sessionData || !sessionData.success) {
-            console.error("Invalid session data returned:", sessionData);
             throw new Error("Could not create payment session. Please try again.");
           }
           
           // Redirect to Stripe checkout page
           if (sessionData.url) {
-            console.log('Redirecting to Stripe checkout:', sessionData.url);
             window.location.href = sessionData.url;
           } else {
             throw new Error("Invalid payment session. Missing checkout URL.");
           }
-        } catch (stripeError) {
-          console.error('Error setting up payment:', stripeError);
+        } catch {
           toast({
             title: "Payment Error",
             description: "Unable to process payment. Please try again.",
@@ -581,16 +538,10 @@ export default function LegalConsultations() {
           setBookingLoading(false);
         }
       } else {
-        // Log detailed response information for debugging
-        console.error("API response failed with data:", data);
-        
         // Try to extract more meaningful error information
         const errorMessage = data.message || data.error || 
                            (data.errors && Array.isArray(data.errors) && data.errors.length > 0 ? data.errors[0] : null) || 
                            "API returned failure status";
-                           
-        // Log payload for comparison
-        console.error("Original request payload:", payload);
         
         toast({
           title: "Booking Error",
@@ -601,14 +552,6 @@ export default function LegalConsultations() {
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error("Error booking consultation:", error);
-      // Log more details about the error to help debugging
-      if (error instanceof Error) {
-        console.error("Error name:", error.name);
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
-      }
-      
       // Just stop the loading state but keep modal open
       setBookingLoading(false);
       // Don't close the booking modal on error
@@ -630,7 +573,7 @@ export default function LegalConsultations() {
 
   // Handle proceeding to payment step
   const handleProceedToPayment = () => {
-    console.log("Current selected lawyer state:", selectedLawyer);
+    logger.log("Current selected lawyer state:", selectedLawyer);
     
     // Set the booking step first regardless of validation
     setBookingStep('payment');
@@ -665,7 +608,6 @@ export default function LegalConsultations() {
     }
     
     setFeedbackLoading(true)
-    console.log('Submitting feedback for consultation:', selectedConsultation.id)
     
     try {
       const res = await fetch(API_ENDPOINTS.CONSULTATIONS.FEEDBACK(selectedConsultation.id.toString()), {
@@ -677,12 +619,9 @@ export default function LegalConsultations() {
         })
       })
       
-      console.log('Feedback response status:', res.status)
-      
       if (!res.ok) {
         // Try to get more detailed error information
-        const errorText = await res.text()
-        console.error('Feedback error response:', errorText)
+        await res.text()
         throw new Error(`Feedback submission failed: ${res.status} ${res.statusText}`)
       }
       
@@ -696,12 +635,9 @@ export default function LegalConsultations() {
         variant: 'success'
       })
       
-      console.log('Feedback submitted successfully')
       hasFetchedConsultations.current = false
       fetchConsultations()
     } catch (error) {
-      console.error('Error submitting feedback:', error)
-      
       toast({
         title: 'Feedback Failed',
         description: error instanceof Error ? error.message : 'Could not submit feedback. Please try again.',
@@ -744,8 +680,7 @@ export default function LegalConsultations() {
       
       if (!res.ok) {
         // Try to get more detailed error information
-        const errorText = await res.text()
-        console.error('Reschedule error response:', errorText)
+        await res.text()
         throw new Error(`Reschedule failed: ${res.status} ${res.statusText}`)
       }
       
@@ -760,7 +695,7 @@ export default function LegalConsultations() {
       hasFetchedConsultations.current = false
       fetchConsultations()
     } catch (error) {
-      console.error('Error rescheduling consultation:', error)
+      logger.error('Error rescheduling consultation:', error)
       toast({
         title: 'Reschedule Failed',
         description: error instanceof Error ? error.message : 'Could not reschedule consultation. Please try again.',
@@ -791,8 +726,7 @@ export default function LegalConsultations() {
       
       if (!res.ok) {
         // Try to get more detailed error information
-        const errorText = await res.text()
-        console.error('Cancel error response:', errorText)
+        await res.text()
         throw new Error(`Cancel failed: ${res.status} ${res.statusText}`)
       }
       
@@ -804,7 +738,7 @@ export default function LegalConsultations() {
       hasFetchedConsultations.current = false
       fetchConsultations()
     } catch (error) {
-      console.error('Error cancelling consultation:', error)
+      logger.error('Error cancelling consultation:', error)
       toast({
         title: 'Cancel Failed',
         description: error instanceof Error ? error.message : 'Could not cancel consultation. Please try again.',
@@ -916,7 +850,6 @@ export default function LegalConsultations() {
       const consultations = await response.json()
       
       if (!Array.isArray(consultations)) {
-        console.error('Expected array of consultations but got:', typeof consultations)
         return null
       }
       
@@ -928,8 +861,7 @@ export default function LegalConsultations() {
       )
       
       return consultation?.roomUrl || null
-    } catch (error) {
-      console.error('Error fetching consultation room URL:', error)
+    } catch {
       return null
     }
   }
@@ -949,7 +881,6 @@ export default function LegalConsultations() {
       const consultations = await response.json()
       
       if (!Array.isArray(consultations)) {
-        console.error('Expected array of consultations but got:', typeof consultations)
         return false
       }
       
@@ -958,8 +889,7 @@ export default function LegalConsultations() {
         c.lawyerName === lawyerName && 
         c.status === 'confirmed'
       )
-    } catch (error) {
-      console.error('Error checking active consultation:', error)
+    } catch {
       return false
     }
   }
@@ -1278,34 +1208,10 @@ export default function LegalConsultations() {
                       Find a Lawyer
                     </Button>
                     
-                    {/* Debug information */}
-                    <div className="mt-4 p-4 bg-gray-100 rounded-lg text-xs max-w-md">
-                      <p className="font-semibold mb-2">Debug Info:</p>
-                      <p>User ID: {user?.id || 'Not loaded'}</p>
-                      <p>Consultations loaded: {consultations.length}</p>
-                      <p>Loading state: {loadingConsultations ? 'true' : 'false'}</p>
-                      <p>Error state: {consultationsError || 'none'}</p>
-                      <p>Has fetched: {hasFetchedConsultations.current ? 'true' : 'false'}</p>
-                      <p>User ref: {userRef.current?.id || 'Not set'}</p>
-                      {consultations.length > 0 && (
-                        <div className="mt-2">
-                          <p className="font-semibold">Raw Data:</p>
-                          <pre className="text-xs overflow-auto max-h-32">
-                            {JSON.stringify(consultations, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
+
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Debug info for consultations */}
-                    {/* <div className="p-4 bg-blue-50 rounded-lg text-xs">
-                      <p className="font-semibold mb-2">Consultations Debug:</p>
-                      <p>Total consultations: {consultations.length}</p>
-                      <p>First consultation: {consultations[0] ? JSON.stringify(consultations[0]) : 'None'}</p>
-                    </div> */}
-                    
                     {consultations.map((consultation) => {
                       const isConfirmed = consultation.status === 'confirmed'
                       const isCompleted = consultation.status === 'completed'

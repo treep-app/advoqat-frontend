@@ -2,6 +2,7 @@ import { API_ENDPOINTS } from '@/lib/config'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/utils'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
                 cookieStore.set(name, value, options)
               )
             } catch {
-              console.log('Error setting cookies')
-              console.log(cookiesToSet)
+              logger.log('Error setting cookies')
+              logger.log(cookiesToSet)
               // The `setAll` method was called from a Server Component.
               // This can be ignored if you have middleware refreshing
               // user sessions.
@@ -51,12 +52,12 @@ export async function GET(request: NextRequest) {
         })
         
         if (!syncRes.ok) {
-          console.log('Failed to sync user to backend:', await syncRes.text())
+          logger.log('Failed to sync user to backend:', await syncRes.text())
         } else {
-          console.log('User synced to backend successfully')
+          logger.log('User synced to backend successfully')
         }
       } catch (syncError) {
-        console.log('Error syncing user to backend:', syncError)
+        logger.log('Error syncing user to backend:', syncError)
       }
     }
   }

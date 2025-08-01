@@ -9,6 +9,7 @@ import { useToastContext } from '@/components/ui/toast-context'
 import { verifyPaymentSession } from '@/lib/stripe'
 import { CheckCircle, Calendar, ArrowRight } from 'lucide-react'
 import AddToCalendarButton from '@/components/AddToCalendarButton'
+import { logger } from '@/lib/utils'
 
 interface ConsultationDetails {
   id: string
@@ -42,8 +43,8 @@ function PaymentSuccessContent() {
       try {
         setLoading(true)
         const result = await verifyPaymentSession(sessionId)
-         console.log("result.metadata", result.metadata)
-         console.log("result", result)
+         logger.log("result.metadata", result.metadata)
+         logger.log("result", result)
         // if (result.paid && result.metadata) {
 
         if(result){
@@ -54,7 +55,7 @@ function PaymentSuccessContent() {
             method: result.metadata.method
           })
 
-         console.log("consultationDetails", consultationDetails)
+         logger.log("consultationDetails", consultationDetails)
           
           toast({
             title: 'Payment Successful',
@@ -69,7 +70,7 @@ function PaymentSuccessContent() {
           })
         }
       } catch (error) {
-        console.error('Error verifying payment:', error)
+        logger.error('Error verifying payment:', error)
         toast({
           title: 'Error',
           description: 'Failed to verify payment. Please contact support.',

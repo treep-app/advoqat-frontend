@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { logger } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (upsertError) {
-      console.error('Error saving onboarding data:', upsertError)
+      logger.error('Error saving onboarding data:', upsertError)
       return NextResponse.json(
         { error: 'Failed to save onboarding data' },
         { status: 500 }
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('Onboarding API error:', error)
+    logger.error('Onboarding API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -9,6 +9,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Loader2 } from 'lucide-react';
+import { logger } from '@/lib/utils'
 
 // Initialize Stripe with your publishable key
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -137,7 +138,7 @@ export default function StripeCheckoutModal({
   useEffect(() => {
     // Debug logging to help troubleshoot
     if (isOpen) {
-      console.log('Stripe modal should be opening', { isOpen, hasClientSecret: !!clientSecret, clientSecretLength: clientSecret?.length });
+      logger.log('Stripe modal should be opening', { isOpen, hasClientSecret: !!clientSecret, clientSecretLength: clientSecret?.length });
     }
   }, [isOpen, clientSecret]);
 

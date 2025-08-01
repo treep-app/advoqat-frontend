@@ -39,6 +39,7 @@ import {
   CreditCard
 } from 'lucide-react'
 import { User } from '@supabase/supabase-js'
+import { logger } from '@/lib/utils'
 
 interface NavbarProps {
   user?: User | null
@@ -70,7 +71,7 @@ export function Navbar({ user, currentPage }: NavbarProps) {
         }
       }
     } catch (error) {
-      console.error('Error fetching profile image:', error)
+      logger.error('Error fetching profile image:', error)
     } finally {
       setProfileImageLoading(false)
     }
@@ -83,7 +84,7 @@ export function Navbar({ user, currentPage }: NavbarProps) {
 
   // Expose refresh function for other components
   const refreshProfileImage = useCallback(() => {
-    console.log('🔄 Refreshing navbar profile image...')
+    logger.log('🔄 Refreshing navbar profile image...')
     fetchProfileImage()
   }, [fetchProfileImage])
 

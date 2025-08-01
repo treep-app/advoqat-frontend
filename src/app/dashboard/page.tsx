@@ -18,6 +18,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import DashboardRoleRedirect from "./DashboardRoleRedirect";
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
+import { logger } from '@/lib/utils'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -28,26 +29,26 @@ export default function DashboardPage() {
     const getUser = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser()
-        console.log(`Getting user:`, user)
-        console.log(`Auth error:`, error)
+        logger.log(`Getting user:`, user)
+        logger.log(`Auth error:`, error)
         
         if (error) {
-          console.error('Auth error:', error)
+          logger.error('Auth error:', error)
           router.push('/auth/signin')
           return
         }
         
         if (!user) {
-          console.log('No user found, redirecting to signin')
+          logger.log('No user found, redirecting to signin')
           router.push('/auth/signin')
           return
         }
         
-        console.log('User authenticated:', user.email)
+        logger.log('User authenticated:', user.email)
         setUser(user)
         setLoading(false)
       } catch (err) {
-        console.error('Error getting user:', err)
+        logger.error('Error getting user:', err)
         router.push('/auth/signin')
       }
     }

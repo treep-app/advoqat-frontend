@@ -18,6 +18,7 @@ import {
   EyeOff
 } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
+import { logger } from '@/lib/utils'
 
 interface Document {
   id: string
@@ -118,7 +119,7 @@ export function DocumentChat({ documents, sessionId, userId, onClose }: Document
         variant: 'success'
       })
     } catch (error) {
-      console.error('Error sending message:', error)
+      logger.error('Error sending message:', error)
       toast({
         title: 'Error',
         description: 'Failed to send message. Please try again.',

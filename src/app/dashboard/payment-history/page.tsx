@@ -28,6 +28,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { API_ENDPOINTS } from '@/lib/config'
 import { User as SupabaseUser } from '@supabase/supabase-js'
+import { logger } from '@/lib/utils'
 
 interface PaymentRecord {
   id: number
@@ -95,7 +96,7 @@ export default function PaymentHistoryPage() {
           return
         }
       } catch (error) {
-        console.error('Error getting user:', error)
+        logger.error('Error getting user:', error)
         router.push('/auth/signin')
       }
     }
@@ -136,7 +137,7 @@ export default function PaymentHistoryPage() {
       setPayments(data.payments)
       setPagination(data.pagination)
     } catch (error) {
-      console.error('Error fetching payment history:', error)
+      logger.error('Error fetching payment history:', error)
       toast({
         title: 'Error',
         description: 'Failed to load payment history',
@@ -160,7 +161,7 @@ export default function PaymentHistoryPage() {
       const data = await response.json()
       setStats(data.stats)
     } catch (error) {
-      console.error('Error fetching payment stats:', error)
+      logger.error('Error fetching payment stats:', error)
     }
   }
 

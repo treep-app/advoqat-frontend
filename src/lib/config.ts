@@ -1,5 +1,5 @@
 // Backend API configuration
-export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://legaliq.onrender.com';
 
 // API endpoints
 export const API_ENDPOINTS = {

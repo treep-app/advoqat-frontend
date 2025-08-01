@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bell, Scale, User, Clock, LogOut, Menu, ChevronLeft, DollarSign, Circle, MessageCircle, FileText, Star, Settings, CheckCircle, Plus, RefreshCw, Search } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/config";
+import { logger } from '@/lib/utils'
 
 const PRIORITY_COLORS = {
   High: "bg-red-100 text-red-700",
@@ -38,7 +39,7 @@ export default function FreelancerDashboard() {
   // Get userId from localStorage (set after user sync/login)
   const userId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  console.log("userId", userId);
+  logger.log("userId", userId);
 
   async function handleToggleAvailability() {
     if (!userId) {

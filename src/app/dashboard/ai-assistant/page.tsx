@@ -34,6 +34,7 @@ import { API_ENDPOINTS } from '@/lib/config'
 import { User as SupabaseUser } from '@supabase/supabase-js'
 import { DocumentUploadModal } from '@/components/ai/DocumentUploadModal'
 import { DocumentChat } from '@/components/ai/DocumentChat'
+import { logger } from '@/lib/utils'
 
 interface ChatMessage {
   id?: string
@@ -105,7 +106,7 @@ export default function AIAssistantPage() {
         setUser(user)
         setLoading(false)
       } catch (err) {
-        console.error('Error getting user:', err)
+        logger.error('Error getting user:', err)
         router.push('/auth/signin')
       }
     }
@@ -123,10 +124,10 @@ export default function AIAssistantPage() {
       if (data.success) {
         setSessions(data.sessions)
       } else {
-        console.error('Failed to fetch sessions:', data.error)
+        logger.error('Failed to fetch sessions:', data.error)
       }
     } catch (error) {
-      console.error('Error fetching sessions:', error)
+      logger.error('Error fetching sessions:', error)
     }
   }, [user])
 
@@ -142,7 +143,7 @@ export default function AIAssistantPage() {
         setHasDocuments(documents.length > 0)
       }
     } catch (error) {
-      console.error('Error fetching session documents:', error)
+      logger.error('Error fetching session documents:', error)
     }
   }, [currentSession, user])
 
@@ -179,10 +180,10 @@ export default function AIAssistantPage() {
         setCurrentSession(sessionId)
         setShowChat(true)
       } else {
-        console.error('Failed to fetch session:', data.error)
+        logger.error('Failed to fetch session:', data.error)
       }
     } catch (error) {
-      console.error('Error fetching session:', error)
+      logger.error('Error fetching session:', error)
     }
   }
 
@@ -241,7 +242,7 @@ export default function AIAssistantPage() {
         variant: 'success'
       })
     } catch (error) {
-      console.error('Error sending message:', error)
+      logger.error('Error sending message:', error)
       toast({
         title: 'Error',
         description: 'Failed to send message. Please try again.',
@@ -279,7 +280,7 @@ export default function AIAssistantPage() {
         })
       }
     } catch (error) {
-      console.error('Error deleting session:', error)
+      logger.error('Error deleting session:', error)
       toast({
         title: 'Error',
         description: 'Failed to delete session',

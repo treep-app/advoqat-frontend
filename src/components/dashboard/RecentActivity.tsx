@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { BACKEND_URL } from '@/lib/config'
+import { logger } from '@/lib/utils'
 
 interface ActivityItem {
   id: string
@@ -157,7 +158,7 @@ export function RecentActivity({ userId }: RecentActivityProps) {
         })
 
     } catch (error) {
-      console.error('Error fetching recent activity:', error)
+      logger.error('Error fetching recent activity:', error)
     } finally {
       setLoading(false)
     }

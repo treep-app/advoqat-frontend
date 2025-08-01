@@ -21,6 +21,7 @@ import {
   Edit3
 } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
+import { logger } from '@/lib/utils'
 
 interface UserProfile {
   id: string
@@ -52,7 +53,7 @@ export default function SettingsPage() {
       const { data: { user }, error } = await supabase.auth.getUser()
       
       if (error || !user) {
-        console.error('Auth error:', error)
+        logger.error('Auth error:', error)
         return
       }
       
@@ -107,7 +108,7 @@ export default function SettingsPage() {
         })
       }
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      logger.error('Error fetching profile:', error)
       // If profile fetch fails, create a basic profile from user data
       if (user) {
         setProfile({
@@ -175,7 +176,7 @@ export default function SettingsPage() {
         throw new Error('Failed to update profile')
       }
     } catch (error) {
-      console.error('Error updating profile:', error)
+      logger.error('Error updating profile:', error)
       toast({
         title: 'Update Failed',
         description: 'Failed to update profile. Please try again.',

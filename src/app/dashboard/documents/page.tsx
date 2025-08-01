@@ -41,6 +41,7 @@ import { supabase } from '@/lib/supabase'
 import { API_ENDPOINTS } from '@/lib/config'
 
 import { User } from '@supabase/supabase-js';
+import { logger } from '@/lib/utils'
 
 interface DocumentTemplate {
   id: string
@@ -192,7 +193,7 @@ export default function DocumentsPage() {
         setUser(user)
         setLoading(false)
       } catch (err) {
-        console.error('Error getting user:', err)
+        logger.error('Error getting user:', err)
         router.push('/auth/signin')
       }
     }
@@ -211,10 +212,10 @@ export default function DocumentsPage() {
       if (data.success) {
         setUserDocuments((data.documents || []) as DocumentRecord[])
       } else {
-        console.error('Failed to fetch user documents:', data.error)
+        logger.error('Failed to fetch user documents:', data.error)
       }
     } catch (err) {
-      console.error('Failed to fetch user documents', err)
+      logger.error('Failed to fetch user documents', err)
     } finally {
       setDocsLoading(false)
     }
@@ -322,7 +323,7 @@ export default function DocumentsPage() {
         variant: 'default'
       })
     } catch (err) {
-      console.error('Error generating document:', err)
+      logger.error('Error generating document:', err)
       toast({
         title: 'Generation Failed',
         description: 'Failed to generate document. Please try again.',
@@ -379,7 +380,7 @@ export default function DocumentsPage() {
         window.location.href = data.url
       }
     } catch (error) {
-      console.error('Error creating payment session:', error)
+      logger.error('Error creating payment session:', error)
       toast({
         title: 'Payment Error',
         description: 'Failed to create payment session. Please try again.',
@@ -420,7 +421,7 @@ export default function DocumentsPage() {
         window.location.href = data.url
       }
     } catch (error) {
-      console.error('Error creating payment session:', error)
+      logger.error('Error creating payment session:', error)
       toast({
         title: 'Payment Error',
         description: 'Failed to create payment session. Please try again.',
@@ -473,7 +474,7 @@ export default function DocumentsPage() {
         window.history.replaceState({}, '', '/dashboard/documents')
       }
     } catch (error) {
-      console.error('Error creating document after payment:', error)
+      logger.error('Error creating document after payment:', error)
       toast({
         title: 'Error',
         description: 'Payment was successful but there was an error creating your document. Please contact support.',

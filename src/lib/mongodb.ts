@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { logger } from '@/lib/utils'
 
 const MONGODB_URI = process.env.MONGODB_URI
 
@@ -16,10 +17,10 @@ export async function connectToDatabase() {
       serverSelectionTimeoutMS: 5000,
     });
     cachedConnection = connection;
-    console.log('MongoDB connected');
+    logger.log('MongoDB connected');
     return connection;
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    logger.error('MongoDB connection error:', error);
     throw error;
   }
 }

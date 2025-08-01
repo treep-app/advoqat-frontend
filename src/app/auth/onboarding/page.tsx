@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Scale, CheckCircle, ArrowRight } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
+import { logger } from '@/lib/utils'
 
 const legalInterests = [
   {
@@ -89,7 +90,7 @@ export default function OnboardingPage() {
       // Redirect to dashboard on success
       router.push('/dashboard')
     } catch (error) {
-      console.error('Error during onboarding:', error)
+      logger.error('Error during onboarding:', error)
       // Still redirect to dashboard even if there's an error
       router.push('/dashboard')
     } finally {

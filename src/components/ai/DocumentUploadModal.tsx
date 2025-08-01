@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
+import { logger } from '@/lib/utils'
 
 interface UploadedDocument {
   id: string
@@ -138,7 +139,7 @@ export function DocumentUploadModal({
         throw new Error(data.error || 'Upload failed')
       }
     } catch (error) {
-      console.error('Upload error:', error)
+      logger.error('Upload error:', error)
       toast({
         title: 'Upload Failed',
         description: 'Failed to upload documents. Please try again.',
@@ -170,7 +171,7 @@ export function DocumentUploadModal({
         throw new Error('Failed to delete document')
       }
     } catch (error) {
-      console.error('Delete error:', error)
+      logger.error('Delete error:', error)
       toast({
         title: 'Delete Failed',
         description: 'Failed to delete document. Please try again.',

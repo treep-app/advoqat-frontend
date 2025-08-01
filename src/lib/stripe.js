@@ -1,5 +1,6 @@
 import { loadStripe } from '@stripe/stripe-js';
 import { BACKEND_URL } from './config';
+import { logger } from '@/lib/utils'
 
 // Initialize Stripe with your publishable key
 // This is a public key and safe to include in client-side code
@@ -79,7 +80,7 @@ export const createCheckoutSession = async ({
     }
     
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    logger.error('Error creating checkout session:', error);
     throw error;
   }
 };
@@ -102,7 +103,7 @@ export const verifyPaymentSession = async (sessionId) => {
 
     return result;
   } catch (error) {
-    console.error('Error verifying payment session:', error);
+    logger.error('Error verifying payment session:', error);
     throw error;
   }
 };

@@ -23,6 +23,7 @@ import { API_ENDPOINTS } from '@/lib/config'
 import { ExportOptions } from '@/components/ExportOptions'
 import { useDocumentSecurity } from '@/hooks/useDocumentSecurity'
 import { User as SupabaseUser } from '@supabase/supabase-js'
+import { logger } from '@/lib/utils'
 
 interface DocumentRecord {
   id: string;
@@ -78,7 +79,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           return
         }
       } catch (error) {
-        console.error('Error getting user:', error)
+        logger.error('Error getting user:', error)
         router.push('/auth/signin')
       }
     }
@@ -86,31 +87,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     getUser()
   }, [router])
 
-  useEffect(() => {
-    if (user && documentId) {
-      fetchDocument()
-    }
-  }, [user, documentId])
-
-  useEffect(() => {
-    // Handle payment success redirect
-    if (paymentStatus === 'success' && sessionId && user?.id) {
-      handlePaymentSuccess()
-    } else if (paymentStatus === 'cancelled') {
-      toast({
-        title: 'Payment Cancelled',
-        description: 'Your payment was cancelled. You can try again when ready.',
-        variant: 'destructive'
-      })
-    }
-  }, [paymentStatus, sessionId, user])
-
   const fetchDocument = useCallback(async () => {
     if (!user?.id) return
 
     try {
       setLoading(true)
-      console.log('Fetching document:', documentId, 'for user:', user.id)
+      logger.log('Fetching document:', documentId, 'for user:', user.id)
       
       const response = await fetch(`${API_ENDPOINTS.DOCUMENTS.BASE}/${documentId}?userId=${user.id}`, {
         method: 'GET',
@@ -119,7 +101,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         },
       })
 
-      console.log('Document fetch response status:', response.status)
+      logger.log('Document fetch response status:', response.status)
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -133,15 +115,15 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         }
         
         const errorData = await response.json().catch(() => ({}))
-        console.error('Document fetch failed:', errorData)
+        logger.error('Document fetch failed:', errorData)
         throw new Error(errorData.error || 'Failed to fetch document')
       }
 
       const data = await response.json()
-      console.log('Document data:', data)
+      logger.log('Document data:', data)
       setDocument(data.document)
     } catch (error) {
-      console.error('Error fetching document:', error)
+      logger.error('Error fetching document:', error)
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to load document details.',
@@ -152,28 +134,15 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   }, [user?.id, documentId, toast, router])
 
-  const handlePaymentRequired = () => {
-    if (!document) return
-    
-    toast({
-      title: 'Payment Required',
-      description: 'Please complete payment to view and download this document.',
-      variant: 'destructive'
-    })
-    
-    // Redirect to payment or show payment modal
-    // For now, we'll just show a toast, but you can implement payment flow here
-  }
-
   const handlePaymentSuccess = useCallback(async () => {
     if (!sessionId || !user?.id) {
-      console.log('Missing sessionId or user.id:', { sessionId, userId: user?.id })
+      logger.log('Missing sessionId or user.id:', { sessionId, userId: user?.id })
       return
     }
 
     setPaymentVerifying(true)
     try {
-      console.log('Verifying payment for session:', sessionId)
+      logger.log('Verifying payment for session:', sessionId)
       
       // Verify payment with backend
       const response = await fetch(`${API_ENDPOINTS.DOCUMENTS.VERIFY_PAYMENT(documentId)}`, {
@@ -187,16 +156,16 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         }),
       })
 
-      console.log('Payment verification response status:', response.status)
+      logger.log('Payment verification response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error('Payment verification failed:', errorData)
+        logger.error('Payment verification failed:', errorData)
         throw new Error(errorData.error || 'Failed to verify payment')
       }
 
       const data = await response.json()
-      console.log('Payment verification response:', data)
+      logger.log('Payment verification response:', data)
       
       if (data.success && data.paid) {
         toast({
@@ -215,7 +184,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         })
       }
     } catch (error) {
-      console.error('Error verifying payment:', error)
+      logger.error('Error verifying payment:', error)
       toast({
         title: 'Payment Verification Error',
         description: error instanceof Error ? error.message : 'Failed to verify payment. Please contact support.',
@@ -226,7 +195,37 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   }, [sessionId, user?.id, documentId, toast, fetchDocument])
 
+  useEffect(() => {
+    if (user && documentId) {
+      fetchDocument()
+    }
+  }, [user, documentId, fetchDocument])
 
+  useEffect(() => {
+    // Handle payment success redirect
+    if (paymentStatus === 'success' && sessionId && user?.id) {
+      handlePaymentSuccess()
+    } else if (paymentStatus === 'cancelled') {
+      toast({
+        title: 'Payment Cancelled',
+        description: 'Your payment was cancelled. You can try again when ready.',
+        variant: 'destructive'
+      })
+    }
+  }, [paymentStatus, sessionId, user, handlePaymentSuccess, toast])
+
+  const handlePaymentRequired = () => {
+    if (!document) return
+    
+    toast({
+      title: 'Payment Required',
+      description: 'Please complete payment to view and download this document.',
+      variant: 'destructive'
+    })
+    
+    // Redirect to payment or show payment modal
+    // For now, we'll just show a toast, but you can implement payment flow here
+  }
 
   const getPaymentStatusBadge = (paymentStatus: string) => {
     switch (paymentStatus) {

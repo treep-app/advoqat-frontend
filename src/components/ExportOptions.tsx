@@ -16,6 +16,7 @@ import { API_ENDPOINTS } from '@/lib/config'
 import jsPDF from 'jspdf'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 import { saveAs } from 'file-saver'
+import { logger } from '@/lib/utils'
 import { 
   formatForPDF, 
   formatForDOCX, 
@@ -262,7 +263,7 @@ export function ExportOptions({ document, documentId, userId, onDownloadComplete
       
       onDownloadComplete?.()
     } catch (error) {
-      console.error('Error downloading document:', error)
+      logger.error('Error downloading document:', error)
       toast({
         title: 'Download Failed',
         description: `Failed to download document as ${format.toUpperCase()}. Please try again.`,

@@ -95,6 +95,9 @@ export default function Home() {
                   <Button variant="outline" size="sm" asChild>
                     <Link href="/auth/signin">Sign In</Link>
                   </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/freelancer/login">Lawyer Login</Link>
+                  </Button>
                   <Button size="sm" asChild>
                     <Link href="/auth/signup">Get Started</Link>
                   </Button>

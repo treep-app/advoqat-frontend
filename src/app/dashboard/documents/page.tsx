@@ -174,6 +174,17 @@ export default function DocumentsPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedDocumentForPayment, setSelectedDocumentForPayment] = useState<DocumentRecord | null>(null)
   const [showGeneratedDocumentPaymentModal, setShowGeneratedDocumentPaymentModal] = useState(false)
+  const [savedDocumentPayment, setSavedDocumentPayment] = useState<{
+    type: 'existing_document' | 'generated_document';
+    documentId: string;
+    templateName: string;
+    documentFee: number;
+    formData: Record<string, string>;
+    document?: DocumentRecord;
+    template?: DocumentTemplate;
+    timestamp: number;
+    expiresAt: number;
+  } | null>(null)
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchTerm, setSearchTerm] = useState('')
@@ -226,6 +237,98 @@ export default function DocumentsPage() {
     }
   }, [user])
 
+  // Document payment persistence functions
+  const saveDocumentPaymentJourney = (journeyData: {
+    type: 'existing_document' | 'generated_document';
+    documentId: string;
+    templateName: string;
+    documentFee: number;
+    formData: Record<string, string>;
+    document?: DocumentRecord;
+    template?: DocumentTemplate;
+    generatedDocument?: string;
+  }) => {
+    const journey = {
+      ...journeyData,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+    }
+    localStorage.setItem('legaliq_document_payment_journey', JSON.stringify(journey))
+    setSavedDocumentPayment(journey)
+  }
+
+  const loadDocumentPaymentJourney = () => {
+    const saved = localStorage.getItem('legaliq_document_payment_journey')
+    if (saved) {
+      const journey = JSON.parse(saved)
+      // Check if journey is still valid (not expired)
+      if (journey.expiresAt > Date.now()) {
+        setSavedDocumentPayment(journey)
+        return journey
+      } else {
+        // Clear expired journey
+        localStorage.removeItem('legaliq_document_payment_journey')
+        setSavedDocumentPayment(null)
+      }
+    }
+    return null
+  }
+
+  const clearDocumentPaymentJourney = () => {
+    localStorage.removeItem('legaliq_document_payment_journey')
+    setSavedDocumentPayment(null)
+  }
+
+  const continueDocumentPaymentJourney = async (journey: {
+    type: 'existing_document' | 'generated_document';
+    documentId: string;
+    templateName: string;
+    documentFee: number;
+    formData: Record<string, string>;
+    document?: DocumentRecord;
+    template?: DocumentTemplate;
+    generatedDocument?: string;
+    timestamp: number;
+    expiresAt: number;
+  }) => {
+    try {
+      setPaymentLoading(journey.documentId || 'generated')
+      
+      if (journey.documentId && journey.documentId !== 'temp') {
+        // Restore document payment
+        if (journey.document) {
+          setSelectedDocumentForPayment(journey.document)
+          setShowPaymentModal(true)
+        }
+      } else {
+        // Restore generated document payment
+        if (journey.template) {
+          setSelectedTemplate(journey.template)
+          setFormData(journey.formData)
+          setGeneratedDocument(journey.generatedDocument || null)
+          setShowGeneratedDocumentPaymentModal(true)
+        }
+      }
+      
+      // Clear the saved journey since we're continuing it
+      clearDocumentPaymentJourney()
+      
+      toast({
+        title: "Payment Journey Restored",
+        description: "Your document payment details have been restored. You can continue with payment.",
+      })
+    } catch (error) {
+      console.error('Error continuing document payment journey:', error)
+      toast({
+        title: 'Error',
+        description: 'Could not restore payment journey. Please start a new payment.',
+        variant: 'destructive'
+      })
+    } finally {
+      setPaymentLoading(null)
+    }
+  }
+
   // Handle payment success for generated documents
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
@@ -235,12 +338,22 @@ export default function DocumentsPage() {
 
     if (paymentStatus === 'success' && sessionId && isGenerated === 'true') {
       handleGeneratedDocumentPaymentSuccess(sessionId)
+      // Clear any saved payment journey
+      clearDocumentPaymentJourney()
     } else if (paymentStatus === 'cancelled') {
       toast({
         title: 'Payment Cancelled',
-        description: 'Your payment was cancelled. You can try again when ready.',
+        description: 'Your payment was cancelled. You can continue later from your saved payment.',
         variant: 'destructive'
       })
+    }
+  }, [])
+
+  // Check for saved document payment journey on component mount
+  useEffect(() => {
+    const journey = loadDocumentPaymentJourney()
+    if (journey) {
+      // Journey loaded, but we don't need to show persistence UI anymore
     }
   }, [])
 
@@ -356,6 +469,17 @@ export default function DocumentsPage() {
   const createPaymentSession = async (doc: DocumentRecord) => {
     if (!user?.id) return
     
+    // Save payment journey before proceeding
+    const journeyData = {
+      documentId: doc.id,
+      document: doc,
+      type: 'existing_document' as const,
+      templateName: doc.template_name,
+      documentFee: doc.document_fee,
+      formData: doc.form_data
+    }
+    saveDocumentPaymentJourney(journeyData)
+    
     setPaymentLoading(doc.id)
     try {
       const response = await fetch(API_ENDPOINTS.DOCUMENTS.CREATE_PAYMENT(doc.id), {
@@ -392,6 +516,18 @@ export default function DocumentsPage() {
 
   const createGeneratedDocumentPaymentSession = async () => {
     if (!user?.id || !selectedTemplate) return
+    
+    // Save payment journey before proceeding
+    const journeyData = {
+      documentId: 'temp',
+      template: selectedTemplate,
+      formData: formData,
+      generatedDocument: generatedDocument || undefined,
+      type: 'generated_document' as const,
+      templateName: selectedTemplate.name,
+      documentFee: selectedTemplate.fields.length * 5 // Estimate fee based on complexity
+    }
+    saveDocumentPaymentJourney(journeyData)
     
     setPaymentLoading('generated')
     try {
@@ -559,6 +695,50 @@ export default function DocumentsPage() {
     <AppLayout currentPage="/dashboard/documents">
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          
+          {/* Saved Document Payment Notification */}
+          {savedDocumentPayment && (
+            <div className="mb-6">
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <FileText className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-blue-900">Saved Payment</h3>
+                        <p className="text-sm text-blue-700">
+                          {savedDocumentPayment.type === 'existing_document' 
+                            ? `You have a saved payment for ${savedDocumentPayment.document?.template_name || 'a document'}`
+                            : `You have a saved payment for ${savedDocumentPayment.template?.name || 'a generated document'}`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => continueDocumentPaymentJourney(savedDocumentPayment)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        Continue Payment
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={clearDocumentPaymentJourney}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
           <Tabs defaultValue="templates" className="space-y-8">
             <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-2 bg-white/80 backdrop-blur-sm border">
               <TabsTrigger value="templates" className="flex items-center gap-2">
@@ -998,10 +1178,10 @@ export default function DocumentsPage() {
                             </Button>
                             <Button 
                               size="sm" 
-                              variant={doc.payment_status === 'paid' ? 'default' : 'outline'}
+                              variant={doc.payment_status === 'paid' ? 'default' : 'default'}
                               onClick={() => doc.payment_status === 'paid' ? router.push(`/dashboard/documents/${doc.id}`) : handlePaymentRequired(doc)}
                               disabled={paymentLoading === doc.id}
-                              className={doc.payment_status === 'paid' ? 'bg-green-600 hover:bg-green-700' : ''}
+                              className={doc.payment_status === 'paid' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700 text-white'}
                             >
                               {doc.payment_status === 'paid' ? (
                                 <>
@@ -1010,6 +1190,7 @@ export default function DocumentsPage() {
                                 </>
                               ) : (
                                 <>
+                                
                                   <Lock className="h-4 w-4 mr-1" />
                                   <span className="text-xs">Pay ${(doc.document_fee / 100).toFixed(2)}</span>
                                 </>
@@ -1102,13 +1283,35 @@ export default function DocumentsPage() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => setShowPaymentModal(false)}
-                >
-                  Cancel
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      // Save current payment state
+                      const journeyData = {
+                        documentId: selectedDocumentForPayment.id,
+                        document: selectedDocumentForPayment,
+                        type: 'existing_document'
+                      }
+                      saveDocumentPaymentJourney(journeyData)
+                      setShowPaymentModal(false)
+                      toast({
+                        title: "Payment Saved",
+                        description: "Your payment details have been saved. You can continue later from the dashboard.",
+                      })
+                    }}
+                  >
+                    Continue Later
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setShowPaymentModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
                 <Button 
                   className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                   onClick={() => createPaymentSession(selectedDocumentForPayment)}
@@ -1188,13 +1391,37 @@ export default function DocumentsPage() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => setShowGeneratedDocumentPaymentModal(false)}
-                >
-                  Cancel
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      // Save current payment state
+                      const journeyData = {
+                        documentId: 'temp',
+                        template: selectedTemplate,
+                        formData: formData,
+                        generatedDocument: generatedDocument,
+                        type: 'generated_document'
+                      }
+                      saveDocumentPaymentJourney(journeyData)
+                      setShowGeneratedDocumentPaymentModal(false)
+                      toast({
+                        title: "Payment Saved",
+                        description: "Your payment details have been saved. You can continue later from the dashboard.",
+                      })
+                    }}
+                  >
+                    Continue Later
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setShowGeneratedDocumentPaymentModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
                 <Button 
                   className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                   onClick={createGeneratedDocumentPaymentSession}

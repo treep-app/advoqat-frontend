@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToastContext } from '@/components/ui/toast-context'
 import { 
   Send, 
@@ -27,7 +28,9 @@ import {
   Building2,
   Briefcase,
   Upload,
-  MessageSquare
+  MessageSquare,
+  CheckCircle,
+  XCircle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { API_ENDPOINTS } from '@/lib/config'
@@ -66,12 +69,164 @@ interface ChatSession {
 }
 
 const legalTopics = [
-  { icon: <FileText className="h-5 w-5" />, title: 'Contract Law', description: 'Contracts, agreements, and legal documents' },
-  { icon: <Users className="h-5 w-5" />, title: 'Employment Law', description: 'Workplace rights and employment contracts' },
-  { icon: <Home className="h-5 w-5" />, title: 'Real Estate', description: 'Property law and real estate transactions' },
-  { icon: <Building2 className="h-5 w-5" />, title: 'Business Law', description: 'Corporate law and business formation' },
-  { icon: <Briefcase className="h-5 w-5" />, title: 'Family Law', description: 'Marriage, divorce, and family matters' },
-  { icon: <Shield className="h-5 w-5" />, title: 'Criminal Law', description: 'Criminal defense and legal procedures' }
+  { 
+    icon: <FileText className="h-5 w-5" />, 
+    title: 'Contract Law', 
+    description: 'Contracts, agreements, and legal documents',
+    keywords: ['contracts', 'agreements', 'terms', 'conditions', 'breach', 'enforcement']
+  },
+  { 
+    icon: <Users className="h-5 w-5" />, 
+    title: 'Employment Law', 
+    description: 'Workplace rights and employment contracts',
+    keywords: ['employment', 'workplace', 'discrimination', 'harassment', 'wages', 'termination']
+  },
+  { 
+    icon: <Home className="h-5 w-5" />, 
+    title: 'Real Estate', 
+    description: 'Property law and real estate transactions',
+    keywords: ['property', 'real estate', 'landlord', 'tenant', 'mortgage', 'deed']
+  },
+  { 
+    icon: <Building2 className="h-5 w-5" />, 
+    title: 'Business Law', 
+    description: 'Corporate law and business formation',
+    keywords: ['business', 'corporate', 'LLC', 'partnership', 'tax', 'compliance']
+  },
+  { 
+    icon: <Briefcase className="h-5 w-5" />, 
+    title: 'Family Law', 
+    description: 'Marriage, divorce, and family matters',
+    keywords: ['family', 'divorce', 'custody', 'child support', 'marriage', 'adoption']
+  },
+  { 
+    icon: <Shield className="h-5 w-5" />, 
+    title: 'Criminal Law', 
+    description: 'Criminal defense and legal procedures',
+    keywords: ['criminal', 'arrest', 'charges', 'defense', 'trial', 'sentencing']
+  },
+  { 
+    icon: <Users className="h-5 w-5" />, 
+    title: 'Immigration Law', 
+    description: 'Visa, citizenship, and immigration matters',
+    keywords: ['immigration', 'visa', 'citizenship', 'green card', 'deportation', 'asylum']
+  },
+  { 
+    icon: <Shield className="h-5 w-5" />, 
+    title: 'Intellectual Property', 
+    description: 'Patents, trademarks, and copyright law',
+    keywords: ['patent', 'trademark', 'copyright', 'intellectual property', 'IP', 'infringement']
+  },
+  { 
+    icon: <FileText className="h-5 w-5" />, 
+    title: 'Tax Law', 
+    description: 'Tax planning and compliance',
+    keywords: ['tax', 'IRS', 'deductions', 'credits', 'filing', 'audit']
+  },
+  { 
+    icon: <Users className="h-5 w-5" />, 
+    title: 'Personal Injury', 
+    description: 'Accidents, negligence, and compensation',
+    keywords: ['personal injury', 'accident', 'negligence', 'compensation', 'damages', 'liability']
+  },
+  { 
+    icon: <Building2 className="h-5 w-5" />, 
+    title: 'Bankruptcy Law', 
+    description: 'Debt relief and financial restructuring',
+    keywords: ['bankruptcy', 'debt', 'creditors', 'discharge', 'chapter 7', 'chapter 13']
+  },
+  { 
+    icon: <Shield className="h-5 w-5" />, 
+    title: 'Estate Planning', 
+    description: 'Wills, trusts, and estate administration',
+    keywords: ['estate', 'will', 'trust', 'probate', 'inheritance', 'power of attorney']
+  }
+]
+
+const jurisdictions = [
+  { country: 'United States', states: [
+    { name: 'Alabama', code: 'AL' },
+    { name: 'Alaska', code: 'AK' },
+    { name: 'Arizona', code: 'AZ' },
+    { name: 'Arkansas', code: 'AR' },
+    { name: 'California', code: 'CA' },
+    { name: 'Colorado', code: 'CO' },
+    { name: 'Connecticut', code: 'CT' },
+    { name: 'Delaware', code: 'DE' },
+    { name: 'Florida', code: 'FL' },
+    { name: 'Georgia', code: 'GA' },
+    { name: 'Hawaii', code: 'HI' },
+    { name: 'Idaho', code: 'ID' },
+    { name: 'Illinois', code: 'IL' },
+    { name: 'Indiana', code: 'IN' },
+    { name: 'Iowa', code: 'IA' },
+    { name: 'Kansas', code: 'KS' },
+    { name: 'Kentucky', code: 'KY' },
+    { name: 'Louisiana', code: 'LA' },
+    { name: 'Maine', code: 'ME' },
+    { name: 'Maryland', code: 'MD' },
+    { name: 'Massachusetts', code: 'MA' },
+    { name: 'Michigan', code: 'MI' },
+    { name: 'Minnesota', code: 'MN' },
+    { name: 'Mississippi', code: 'MS' },
+    { name: 'Missouri', code: 'MO' },
+    { name: 'Montana', code: 'MT' },
+    { name: 'Nebraska', code: 'NE' },
+    { name: 'Nevada', code: 'NV' },
+    { name: 'New Hampshire', code: 'NH' },
+    { name: 'New Jersey', code: 'NJ' },
+    { name: 'New Mexico', code: 'NM' },
+    { name: 'New York', code: 'NY' },
+    { name: 'North Carolina', code: 'NC' },
+    { name: 'North Dakota', code: 'ND' },
+    { name: 'Ohio', code: 'OH' },
+    { name: 'Oklahoma', code: 'OK' },
+    { name: 'Oregon', code: 'OR' },
+    { name: 'Pennsylvania', code: 'PA' },
+    { name: 'Rhode Island', code: 'RI' },
+    { name: 'South Carolina', code: 'SC' },
+    { name: 'South Dakota', code: 'SD' },
+    { name: 'Tennessee', code: 'TN' },
+    { name: 'Texas', code: 'TX' },
+    { name: 'Utah', code: 'UT' },
+    { name: 'Vermont', code: 'VT' },
+    { name: 'Virginia', code: 'VA' },
+    { name: 'Washington', code: 'WA' },
+    { name: 'West Virginia', code: 'WV' },
+    { name: 'Wisconsin', code: 'WI' },
+    { name: 'Wyoming', code: 'WY' }
+  ]},
+  { country: 'Canada', provinces: [
+    { name: 'Alberta', code: 'AB' },
+    { name: 'British Columbia', code: 'BC' },
+    { name: 'Manitoba', code: 'MB' },
+    { name: 'New Brunswick', code: 'NB' },
+    { name: 'Newfoundland and Labrador', code: 'NL' },
+    { name: 'Nova Scotia', code: 'NS' },
+    { name: 'Ontario', code: 'ON' },
+    { name: 'Prince Edward Island', code: 'PE' },
+    { name: 'Quebec', code: 'QC' },
+    { name: 'Saskatchewan', code: 'SK' },
+    { name: 'Northwest Territories', code: 'NT' },
+    { name: 'Nunavut', code: 'NU' },
+    { name: 'Yukon', code: 'YT' }
+  ]},
+  { country: 'United Kingdom', regions: [
+    { name: 'England', code: 'ENG' },
+    { name: 'Scotland', code: 'SCT' },
+    { name: 'Wales', code: 'WLS' },
+    { name: 'Northern Ireland', code: 'NIR' }
+  ]},
+  { country: 'Australia', states: [
+    { name: 'New South Wales', code: 'NSW' },
+    { name: 'Victoria', code: 'VIC' },
+    { name: 'Queensland', code: 'QLD' },
+    { name: 'Western Australia', code: 'WA' },
+    { name: 'South Australia', code: 'SA' },
+    { name: 'Tasmania', code: 'TAS' },
+    { name: 'Australian Capital Territory', code: 'ACT' },
+    { name: 'Northern Territory', code: 'NT' }
+  ]}
 ]
 
 export default function AIAssistantPage() {
@@ -86,6 +241,7 @@ export default function AIAssistantPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [showChat, setShowChat] = useState(false)
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState<{country: string, region: string} | null>(null)
   const [showDocumentUploadModal, setShowDocumentUploadModal] = useState(false)
   const [showDocumentChat, setShowDocumentChat] = useState(false)
   const [sessionDocuments, setSessionDocuments] = useState<Document[]>([])
@@ -210,7 +366,9 @@ export default function AIAssistantPage() {
           sessionId: currentSession,
           message: userMessage,
           userId: user.id,
-          hasDocuments: hasDocuments
+          hasDocuments: hasDocuments,
+          topic: selectedTopic,
+          jurisdiction: selectedJurisdiction
         }),
       })
 
@@ -252,11 +410,24 @@ export default function AIAssistantPage() {
     }
   }
 
-  const startNewChat = (topic?: string) => {
+  const startNewChat = (topic?: string, jurisdiction?: {country: string, region: string}) => {
     setCurrentSession(null)
     setMessages([])
     setShowChat(true)
     setSelectedTopic(topic || null)
+    setSelectedJurisdiction(jurisdiction || null)
+  }
+
+  const startChatWithTopicAndJurisdiction = () => {
+    if (!selectedTopic || !selectedJurisdiction) {
+      toast({
+        title: 'Selection Required',
+        description: 'Please select both a topic and jurisdiction before starting the chat.',
+        variant: 'destructive'
+      })
+      return
+    }
+    startNewChat(selectedTopic, selectedJurisdiction)
   }
 
   const deleteSession = async (sessionId: string) => {
@@ -329,55 +500,206 @@ export default function AIAssistantPage() {
       <AppLayout currentPage="/dashboard/ai-assistant">
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            {/* Quick Start */}
+            {/* Topic and Jurisdiction Selector */}
             <div className="mb-12">
               <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">
                 Start Your Legal Consultation
               </h2>
               <p className="text-gray-600 text-center mb-8">
-                Choose a topic or start a general conversation
+                Select a legal topic and your jurisdiction for personalized guidance
               </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {legalTopics.map((topic, index) => (
-                  <Card 
-                    key={index}
-                    className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 border-0 bg-white/80 backdrop-blur-sm"
-                    onClick={() => startNewChat(topic.title)}
-                  >
-                    <CardHeader>
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl text-white">
-                          {topic.icon}
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                            {topic.title}
-                          </CardTitle>
-                          <CardDescription className="text-sm text-gray-600">
-                            {topic.description}
-                          </CardDescription>
-                        </div>
+              {/* Selection Summary */}
+              {(selectedTopic || selectedJurisdiction?.country) && (
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
+                    {selectedTopic && (
+                      <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">Topic: {selectedTopic}</span>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Click to start</span>
-                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    )}
+                    {selectedJurisdiction?.country && (
+                      <div className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">
+                          {selectedJurisdiction.region 
+                            ? `${selectedJurisdiction.region}, ${selectedJurisdiction.country}`
+                            : `${selectedJurisdiction.country}`
+                          }
+                        </span>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Topic Selection */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Choose a Legal Topic</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                  {legalTopics.map((topic, index) => (
+                    <Card 
+                      key={index}
+                      className={`group cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 border-0 bg-white/80 backdrop-blur-sm ${
+                        selectedTopic === topic.title ? 'ring-2 ring-blue-500 shadow-lg' : ''
+                      }`}
+                      onClick={() => setSelectedTopic(topic.title)}
+                    >
+                      <CardHeader>
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl text-white">
+                            {topic.icon}
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                              {topic.title}
+                            </CardTitle>
+                            <CardDescription className="text-sm text-gray-600">
+                              {topic.description}
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            {selectedTopic === topic.title ? 'Selected' : 'Click to select'}
+                          </span>
+                          {selectedTopic === topic.title && (
+                            <CheckCircle className="h-4 w-4 text-blue-600" />
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
 
-              <div className="text-center">
+              {/* Jurisdiction Selection */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Select Your Jurisdiction</h3>
+                
+                <div className="max-w-md mx-auto space-y-4">
+                  {/* Country Dropdown */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Country
+                    </label>
+                    <Select
+                      value={selectedJurisdiction?.country || ''}
+                      onValueChange={(value) => {
+                        if (value === 'clear') {
+                          setSelectedJurisdiction(null)
+                        } else if (value) {
+                          setSelectedJurisdiction({country: value, region: ''})
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Choose your country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="clear">Clear selection</SelectItem>
+                        {jurisdictions.map((jurisdiction) => (
+                          <SelectItem key={jurisdiction.country} value={jurisdiction.country}>
+                            {jurisdiction.country}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Region Dropdown - Only show if country is selected */}
+                  {selectedJurisdiction?.country && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Region in {selectedJurisdiction.country}
+                      </label>
+                      <Select
+                        value={selectedJurisdiction?.region || ''}
+                        onValueChange={(value) => {
+                          if (value === 'clear') {
+                            setSelectedJurisdiction({...selectedJurisdiction, region: ''})
+                          } else if (value) {
+                            setSelectedJurisdiction({...selectedJurisdiction, region: value})
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={`Choose your region in ${selectedJurisdiction.country}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="clear">Clear selection</SelectItem>
+                          {jurisdictions
+                            .find(j => j.country === selectedJurisdiction.country)
+                            ?.states?.map((state) => (
+                              <SelectItem key={state.code} value={state.name}>
+                                {state.name}
+                              </SelectItem>
+                            ))}
+                          {jurisdictions
+                            .find(j => j.country === selectedJurisdiction.country)
+                            ?.provinces?.map((province) => (
+                              <SelectItem key={province.code} value={province.name}>
+                                {province.name}
+                              </SelectItem>
+                            ))}
+                          {jurisdictions
+                            .find(j => j.country === selectedJurisdiction.country)
+                            ?.regions?.map((region) => (
+                              <SelectItem key={region.code} value={region.name}>
+                                {region.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Selected Jurisdiction Display */}
+                  {selectedJurisdiction?.region && (
+                    <div className="mt-4 text-center">
+                      <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">
+                          Selected: {selectedJurisdiction.region}, {selectedJurisdiction.country}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedJurisdiction(null)}
+                          className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Start Chat Button */}
+              <div className="text-center space-y-3">
                 <Button 
-                  onClick={() => startNewChat()}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  onClick={startChatWithTopicAndJurisdiction}
+                  disabled={!selectedTopic || !selectedJurisdiction}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Sparkles className="h-5 w-5 mr-2" />
-                  Start General Chat
+                  Start Specialized Chat
                 </Button>
+                
+                <div className="text-center">
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => startNewChat()}
+                    className="text-gray-600 hover:text-gray-900"
+                  >
+                    Or start a general conversation
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -437,11 +759,15 @@ export default function AIAssistantPage() {
               <div className="flex items-center gap-4">
                 <Button
                   variant="ghost"
-                  onClick={() => setShowChat(false)}
+                  onClick={() => {
+                    setShowChat(false)
+                    setSelectedTopic(null)
+                    setSelectedJurisdiction(null)
+                  }}
                   className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
                 >
                   <ChevronRight className="h-4 w-4 rotate-180" />
-                  Back to Topics
+                  Back to Topic Selection
                 </Button>
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
@@ -451,7 +777,9 @@ export default function AIAssistantPage() {
                     <h2 className="text-lg font-semibold text-gray-900">
                       {selectedTopic || 'Legal Assistant'}
                     </h2>
-                    <p className="text-sm text-gray-500">AI-powered legal guidance</p>
+                    <p className="text-sm text-gray-500">
+                      {selectedJurisdiction ? `${selectedJurisdiction.region}, ${selectedJurisdiction.country}` : 'AI-powered legal guidance'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -517,24 +845,119 @@ export default function AIAssistantPage() {
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900 mb-4">
                     Welcome to AI Legal Assistant
+                    {selectedTopic && (
+                      <span className="block text-lg font-normal text-blue-600 mt-2">
+                        Specialized in {selectedTopic}
+                      </span>
+                    )}
                   </h3>
                   <p className="text-gray-600 max-w-md mb-6">
-                    I&apos;m here to help you with legal questions and provide educational guidance. 
-                    Upload your documents for personalized analysis or ask me anything about legal matters!
+                    {selectedTopic && selectedJurisdiction ? (
+                      `I'm here to help you with ${selectedTopic.toLowerCase()} questions specific to ${selectedJurisdiction.region}, ${selectedJurisdiction.country}. I'll provide guidance based on the laws and regulations in your jurisdiction.`
+                    ) : (
+                      "I'm here to help you with legal questions and provide educational guidance. Upload your documents for personalized analysis or ask me anything about legal matters!"
+                    )}
                   </p>
                   <div className="flex flex-wrap gap-3 justify-center">
-                    <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
-                      &quot;What makes a contract valid?&quot;
-                    </Badge>
-                    <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
-                      &quot;Employment law basics&quot;
-                    </Badge>
-                    <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
-                      &quot;Real estate contracts&quot;
-                    </Badge>
-                    <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
-                      &quot;Business formation&quot;
-                    </Badge>
+                    {selectedTopic ? (
+                      // Show topic-specific suggestions
+                      <>
+                        {selectedTopic === 'Contract Law' && (
+                          <>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;What makes a contract valid?&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Breach of contract remedies&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Contract termination clauses&quot;
+                            </Badge>
+                          </>
+                        )}
+                        {selectedTopic === 'Employment Law' && (
+                          <>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Workplace discrimination&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Wrongful termination&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Employee rights&quot;
+                            </Badge>
+                          </>
+                        )}
+                        {selectedTopic === 'Family Law' && (
+                          <>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Divorce process&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Child custody laws&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Child support calculation&quot;
+                            </Badge>
+                          </>
+                        )}
+                        {selectedTopic === 'Real Estate' && (
+                          <>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Property purchase process&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Landlord tenant rights&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Mortgage requirements&quot;
+                            </Badge>
+                          </>
+                        )}
+                        {selectedTopic === 'Business Law' && (
+                          <>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;LLC formation&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Business contracts&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Corporate compliance&quot;
+                            </Badge>
+                          </>
+                        )}
+                        {selectedTopic === 'Criminal Law' && (
+                          <>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Criminal defense rights&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Bail and bond process&quot;
+                            </Badge>
+                            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                              &quot;Plea bargaining&quot;
+                            </Badge>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      // Show general suggestions
+                      <>
+                        <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                          &quot;What makes a contract valid?&quot;
+                        </Badge>
+                        <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                          &quot;Employment law basics&quot;
+                        </Badge>
+                        <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                          &quot;Real estate contracts&quot;
+                        </Badge>
+                        <Badge variant="outline" className="cursor-pointer hover:bg-blue-50 px-3 py-1">
+                          &quot;Business formation&quot;
+                        </Badge>
+                      </>
+                    )}
                     <Badge 
                       variant="outline" 
                       className="cursor-pointer hover:bg-blue-50 px-3 py-1 border-blue-200 text-blue-600"
@@ -616,7 +1039,7 @@ export default function AIAssistantPage() {
                   <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100">
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                      <span className="text-sm text-gray-600">AI is thinking...</span>
+                      <span className="text-sm text-gray-600">processing...</span>
                     </div>
                   </div>
                 </div>

@@ -118,6 +118,14 @@ export default function LegalConsultations() {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null)
   const [showReschedule, setShowReschedule] = useState(false)
   const [showFindLawyer, setShowFindLawyer] = useState(false)
+  const [savedPaymentJourney, setSavedPaymentJourney] = useState<{
+    selectedLawyer: Lawyer;
+    bookingDate: string;
+    bookingTime: string;
+    bookingMethod: string;
+    bookingNotes: string;
+    totalFee: number;
+  } | null>(null)
 
 
   // Form states
@@ -246,6 +254,93 @@ export default function LegalConsultations() {
     }
   }, [user, fetchConsultations])
 
+  // Payment persistence functions
+  const savePaymentJourney = (journeyData: {
+    selectedLawyer: Lawyer;
+    bookingDate: string;
+    bookingTime: string;
+    bookingMethod: string;
+    bookingNotes: string;
+    totalFee: number;
+  }) => {
+    const journey = {
+      ...journeyData,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+    }
+    localStorage.setItem('legaliq_payment_journey', JSON.stringify(journey))
+    setSavedPaymentJourney(journey)
+  }
+
+  const loadPaymentJourney = () => {
+    const saved = localStorage.getItem('legaliq_payment_journey')
+    if (saved) {
+      const journey = JSON.parse(saved)
+      // Check if journey is still valid (not expired)
+      if (journey.expiresAt > Date.now()) {
+        setSavedPaymentJourney(journey)
+        return journey
+      } else {
+        // Clear expired journey
+        localStorage.removeItem('legaliq_payment_journey')
+        setSavedPaymentJourney(null)
+      }
+    }
+    return null
+  }
+
+  const clearPaymentJourney = () => {
+    localStorage.removeItem('legaliq_payment_journey')
+    setSavedPaymentJourney(null)
+  }
+
+  const continuePaymentJourney = async (journey: {
+    selectedLawyer: Lawyer;
+    bookingDate: string;
+    bookingTime: string;
+    bookingMethod: string;
+    bookingNotes: string;
+    totalFee: number;
+    consultationFees?: {
+      base_fee: number;
+      additional_fee: number;
+      total_fee: number;
+    };
+  }) => {
+    try {
+      setBookingLoading(true)
+      
+      // Restore booking state
+      setSelectedLawyer(journey.selectedLawyer)
+      setBookingDate(journey.bookingDate)
+      setBookingTime(journey.bookingTime)
+      setBookingMethod(journey.bookingMethod)
+      setBookingNotes(journey.bookingNotes)
+      if (journey.consultationFees) {
+        setConsultationFees(journey.consultationFees)
+      }
+      setBookingStep('review')
+      setShowBooking(true)
+      
+      // Clear the saved journey since we're continuing it
+      clearPaymentJourney()
+      
+      toast({
+        title: "Payment Journey Restored",
+        description: "Your booking details have been restored. You can continue with payment.",
+      })
+    } catch (error) {
+      console.error('Error continuing payment journey:', error)
+      toast({
+        title: 'Error',
+        description: 'Could not restore payment journey. Please start a new booking.',
+        variant: 'destructive'
+      })
+    } finally {
+      setBookingLoading(false)
+    }
+  }
+
   // Handle payment success redirect from Stripe
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -258,6 +353,9 @@ export default function LegalConsultations() {
         title: "Payment Successful",
         description: "Your consultation has been booked and paid for.",
       })
+      
+      // Clear any saved payment journey
+      clearPaymentJourney()
       
       // Reset booking state
       setShowBooking(false)
@@ -276,7 +374,7 @@ export default function LegalConsultations() {
     } else if (paymentStatus === 'cancelled') {
       toast({
         title: 'Payment Cancelled',
-        description: 'Your payment was cancelled. You can try again when ready.',
+        description: 'Your payment was cancelled. You can continue later from your saved booking.',
         variant: 'destructive'
       })
       
@@ -284,6 +382,14 @@ export default function LegalConsultations() {
       window.history.replaceState({}, '', '/dashboard/consultations')
     }
   }, [fetchConsultations, toast])
+
+  // Check for saved payment journey on component mount
+  useEffect(() => {
+    const journey = loadPaymentJourney()
+    if (journey) {
+      // Journey loaded, but we don't need to show persistence UI anymore
+    }
+  }, [])
 
   // Handle booking step navigation
   const handleNextStep = async () => {
@@ -632,6 +738,18 @@ export default function LegalConsultations() {
   const handleProceedToPayment = () => {
     console.log("Current selected lawyer state:", selectedLawyer);
     
+    // Save payment journey before proceeding
+    const journeyData = {
+      selectedLawyer,
+      bookingDate,
+      bookingTime,
+      bookingMethod,
+      bookingNotes,
+      totalFee: consultationFees?.total_fee || 0,
+      consultationFees
+    }
+    savePaymentJourney(journeyData)
+    
     // Set the booking step first regardless of validation
     setBookingStep('payment');
     
@@ -641,6 +759,30 @@ export default function LegalConsultations() {
     
     // Initialize payment process
     handleSubmitBooking();
+  }
+
+  // Handle continue later option
+  const handleContinueLater = () => {
+    // Save current booking state
+    const journeyData = {
+      selectedLawyer,
+      bookingDate,
+      bookingTime,
+      bookingMethod,
+      bookingNotes,
+      totalFee: consultationFees?.total_fee || 0,
+      consultationFees
+    }
+    savePaymentJourney(journeyData)
+    
+    // Close booking modal
+    setShowBooking(false)
+    setBookingStep('details')
+    
+    toast({
+      title: "Booking Saved",
+      description: "Your booking details have been saved. You can continue later from the dashboard.",
+    })
   }
 
   // Submit feedback
@@ -1001,6 +1143,47 @@ export default function LegalConsultations() {
             </Button>
           </div>
         </div>
+
+        {/* Saved Payment Journey Notification */}
+        {savedPaymentJourney && (
+          <div className="mb-6">
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-blue-900">Saved Booking</h3>
+                      <p className="text-sm text-blue-700">
+                        You have a saved consultation booking with {savedPaymentJourney.selectedLawyer?.name} 
+                        for {new Date(`${savedPaymentJourney.bookingDate}T${savedPaymentJourney.bookingTime}`).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => continuePaymentJourney(savedPaymentJourney)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Continue Booking
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={clearPaymentJourney}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Main Content */}
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
@@ -1371,6 +1554,13 @@ export default function LegalConsultations() {
                                         </a>
                                       </Button>
                                     )}
+                                    <AddToCalendarButton
+                                      name={`Legal Consultation with ${consultation.lawyerName}`}
+                                      description={`Legal consultation via ${consultation.method}. ${consultation.notes ? `Notes: ${consultation.notes}` : ''}`}
+                                      startDate={new Date(consultation.datetime).toISOString().split('T')[0]}
+                                      startTime={new Date(consultation.datetime).toTimeString().slice(0, 5)}
+                                      location={consultation.method === 'video' ? 'Video call link will be provided before the meeting' : consultation.method === 'voice' ? 'Phone call' : 'Chat consultation'}
+                                    />
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -1594,14 +1784,24 @@ export default function LegalConsultations() {
                 )}
                 
                 <DialogFooter className="flex justify-between border-t pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handlePreviousStep}
-                    disabled={bookingLoading}
-                  >
-                    Back
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleContinueLater}
+                      disabled={bookingLoading}
+                    >
+                      Continue Later
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePreviousStep}
+                      disabled={bookingLoading}
+                    >
+                      Back
+                    </Button>
+                  </div>
                   <Button
                     type="button"
                     onClick={handleProceedToPayment}
@@ -1673,7 +1873,7 @@ export default function LegalConsultations() {
                       description={`Legal consultation via ${bookingMethod}. ${bookingNotes ? `Notes: ${bookingNotes}` : ''}`}
                       startDate={bookingDate}
                       startTime={bookingTime}
-                      location={bookingMethod === 'video' ? 'Video call link will be provided before the meeting' : ''}
+                      location={bookingMethod === 'video' ? 'Video call link will be provided before the meeting' : bookingMethod === 'voice' ? 'Phone call' : 'Chat consultation'}
                     />
                   </div>
                 </div>
@@ -1966,6 +2166,13 @@ export default function LegalConsultations() {
                                         Call
                                       </Button>
                                     )}
+                                    <AddToCalendarButton
+                                      name={`Legal Consultation with ${profileLawyer?.name}`}
+                                      description={`Legal consultation via ${consultation.method}.`}
+                                      startDate={new Date(consultation.datetime).toISOString().split('T')[0]}
+                                      startTime={new Date(consultation.datetime).toTimeString().slice(0, 5)}
+                                      location={consultation.method === 'video' ? 'Video call link will be provided before the meeting' : consultation.method === 'voice' ? 'Phone call' : 'Chat consultation'}
+                                    />
                                   </div>
                                 </div>
                               ))}

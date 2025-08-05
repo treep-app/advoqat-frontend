@@ -54,6 +54,11 @@ export async function GET(request: NextRequest) {
           console.log('Failed to sync user to backend:', await syncRes.text())
         } else {
           console.log('User synced to backend successfully')
+          // Check user role to determine redirect
+          const userData = await syncRes.json()
+          if (userData.role === 'freelancer') {
+            return NextResponse.redirect(new URL('/freelancer/dashboard', request.url))
+          }
         }
       } catch (syncError) {
         console.log('Error syncing user to backend:', syncError)

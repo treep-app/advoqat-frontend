@@ -44,8 +44,8 @@ export async function middleware(request: NextRequest) {
 
   // Only redirect to signin if user is not authenticated and trying to access protected routes
   // Allow client-side to handle authentication state for better UX
-  if (request.nextUrl.pathname === '/dashboard') {
-    // Let the dashboard page handle its own authentication check
+  if (request.nextUrl.pathname === '/dashboard' || request.nextUrl.pathname.startsWith('/freelancer/dashboard')) {
+    // Let the dashboard pages handle their own authentication check
     // This prevents redirect loops and allows for better loading states
     return response
   }

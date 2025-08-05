@@ -739,16 +739,18 @@ export default function LegalConsultations() {
     console.log("Current selected lawyer state:", selectedLawyer);
     
     // Save payment journey before proceeding
-    const journeyData = {
-      selectedLawyer,
-      bookingDate,
-      bookingTime,
-      bookingMethod,
-      bookingNotes,
-      totalFee: consultationFees?.total_fee || 0,
-      consultationFees
+    if (selectedLawyer) {
+      const journeyData = {
+        selectedLawyer,
+        bookingDate,
+        bookingTime,
+        bookingMethod,
+        bookingNotes,
+        totalFee: consultationFees?.total_fee || 0,
+        consultationFees
+      }
+      savePaymentJourney(journeyData)
     }
-    savePaymentJourney(journeyData)
     
     // Set the booking step first regardless of validation
     setBookingStep('payment');
@@ -764,16 +766,18 @@ export default function LegalConsultations() {
   // Handle continue later option
   const handleContinueLater = () => {
     // Save current booking state
-    const journeyData = {
-      selectedLawyer,
-      bookingDate,
-      bookingTime,
-      bookingMethod,
-      bookingNotes,
-      totalFee: consultationFees?.total_fee || 0,
-      consultationFees
+    if (selectedLawyer) {
+      const journeyData = {
+        selectedLawyer,
+        bookingDate,
+        bookingTime,
+        bookingMethod,
+        bookingNotes,
+        totalFee: consultationFees?.total_fee || 0,
+        consultationFees
+      }
+      savePaymentJourney(journeyData)
     }
-    savePaymentJourney(journeyData)
     
     // Close booking modal
     setShowBooking(false)

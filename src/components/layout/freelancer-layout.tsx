@@ -17,6 +17,12 @@ export default function FreelancerLayout({ children }: FreelancerLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [availability, setAvailability] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showNotifications, setShowNotifications] = useState(false)
 
   useEffect(() => {
     console.log('FreelancerLayout useEffect running')
@@ -162,7 +168,7 @@ export default function FreelancerLayout({ children }: FreelancerLayoutProps) {
         
         <div className="mt-8 flex items-center gap-2">
           <User className="h-5 w-5 text-gray-600" />
-          <span className="text-sm text-gray-700">Jane Smith</span>
+          <span className="text-sm text-gray-700">Sarah Johnson, Esq.</span>
           <Button variant="outline" size="sm" className="ml-auto" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-1" /> Sign Out
           </Button>

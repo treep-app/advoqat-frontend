@@ -1292,7 +1292,10 @@ export default function DocumentsPage() {
                       const journeyData = {
                         documentId: selectedDocumentForPayment.id,
                         document: selectedDocumentForPayment,
-                        type: 'existing_document'
+                        type: 'existing_document' as const,
+                        templateName: selectedDocumentForPayment.template_name,
+                        documentFee: selectedDocumentForPayment.document_fee,
+                        formData: selectedDocumentForPayment.form_data || {}
                       }
                       saveDocumentPaymentJourney(journeyData)
                       setShowPaymentModal(false)
@@ -1401,8 +1404,10 @@ export default function DocumentsPage() {
                         documentId: 'temp',
                         template: selectedTemplate,
                         formData: formData,
-                        generatedDocument: generatedDocument,
-                        type: 'generated_document'
+                        generatedDocument: generatedDocument || undefined,
+                        type: 'generated_document' as const,
+                        templateName: selectedTemplate.name,
+                        documentFee: 999 // $9.99 in cents
                       }
                       saveDocumentPaymentJourney(journeyData)
                       setShowGeneratedDocumentPaymentModal(false)

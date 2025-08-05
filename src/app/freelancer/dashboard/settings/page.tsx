@@ -169,12 +169,17 @@ export default function FreelancerSettingsPage() {
   }
 
   const handleSaveProfile = async () => {
+    if (!userId) {
+      setError('User ID not found')
+      return
+    }
+    
     try {
       setSaving(true)
       setError('')
       setSuccess('')
 
-      const response = await fetch(API_ENDPOINTS.FREELANCERS.UPDATE_PROFILE, {
+      const response = await fetch(API_ENDPOINTS.FREELANCERS.UPDATE_PROFILE(userId), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -206,6 +211,11 @@ export default function FreelancerSettingsPage() {
   }
 
   const handleSaveCredentials = async () => {
+    if (!userId) {
+      setError('User ID not found')
+      return
+    }
+    
     try {
       setSaving(true)
       setError('')
@@ -213,7 +223,7 @@ export default function FreelancerSettingsPage() {
 
       // Note: This is a placeholder for file upload
       // In a real implementation, you would upload files to storage first
-      const response = await fetch(API_ENDPOINTS.FREELANCERS.UPDATE_CREDENTIALS, {
+      const response = await fetch(API_ENDPOINTS.FREELANCERS.UPDATE_CREDENTIALS(userId), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

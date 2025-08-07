@@ -13,6 +13,11 @@ export const API_ENDPOINTS = {
     CREATE_PAYMENT: (id: string) => `${BACKEND_URL}/api/v1/documents/${id}/create-payment`,
     VERIFY_PAYMENT: (id: string) => `${BACKEND_URL}/api/v1/documents/${id}/verify-payment`,
     DOWNLOAD: (id: string) => `${BACKEND_URL}/api/v1/documents/${id}/download`,
+    // Case document endpoints
+    GET_CASE_DOCUMENTS: (caseId: string) => `${BACKEND_URL}/api/v1/documents/case/${caseId}`,
+    UPLOAD_DOCUMENT: (caseId: string) => `${BACKEND_URL}/api/v1/documents/case/${caseId}/upload`,
+    DELETE_DOCUMENT: (caseId: string, documentId: string) => `${BACKEND_URL}/api/v1/documents/case/${caseId}/document/${documentId}`,
+    DOWNLOAD_DOCUMENT: (caseId: string, documentId: string) => `${BACKEND_URL}/api/v1/documents/case/${caseId}/document/${documentId}/download`,
   },
   
   // AI Assistant endpoints
@@ -33,6 +38,14 @@ export const API_ENDPOINTS = {
     MY_CONSULTATIONS: `${BACKEND_URL}/api/consultations/my`,
     CONSULTATION: (id: string) => `${BACKEND_URL}/api/consultations/${id}`,
     FEEDBACK: (id: string) => `${BACKEND_URL}/api/consultations/${id}/feedback`,
+    CREATE: `${BACKEND_URL}/api/consultations`,
+    GET_USER_CONSULTATIONS: (userType: string, userId: string) => `${BACKEND_URL}/api/consultations/${userType}/${userId}`,
+    GET_CONSULTATION: (consultationId: string) => `${BACKEND_URL}/api/consultations/${consultationId}`,
+    UPDATE_STATUS: (consultationId: string) => `${BACKEND_URL}/api/consultations/${consultationId}/status`,
+    START: (consultationId: string) => `${BACKEND_URL}/api/consultations/${consultationId}/start`,
+    END: (consultationId: string) => `${BACKEND_URL}/api/consultations/${consultationId}/end`,
+    CANCEL: (consultationId: string) => `${BACKEND_URL}/api/consultations/${consultationId}/cancel`,
+    STATS: (userType: string, userId: string) => `${BACKEND_URL}/api/consultations/${userType}/${userId}/stats`,
   },
   
   // Freelancer endpoints
@@ -79,8 +92,14 @@ export const API_ENDPOINTS = {
   // Case endpoints
   CASES: {
     CREATE: `${BACKEND_URL}/api/cases`,
-    MY_CASES: `${BACKEND_URL}/api/cases/my`,
+    CLIENT_CASES: (clientId: string) => `${BACKEND_URL}/api/cases/client/${clientId}`,
+    FREELANCER_CASES: (freelancerId: string) => `${BACKEND_URL}/api/cases/freelancer/${freelancerId}`,
     CASE: (id: string) => `${BACKEND_URL}/api/cases/${id}`,
+    ASSIGN: (caseId: string) => `${BACKEND_URL}/api/cases/assign/${caseId}`,
+    UPDATE_STATUS: (caseId: string) => `${BACKEND_URL}/api/cases/${caseId}/status`,
+    UPDATE_DOCUMENT: (caseId: string) => `${BACKEND_URL}/api/cases/${caseId}/document`,
+    AVAILABLE_FREELANCERS: `${BACKEND_URL}/api/cases/freelancers/available`,
+    STATS: (userType: string, userId: string) => `${BACKEND_URL}/api/cases/stats/${userType}/${userId}`,
   },
   
   // Payment History endpoints

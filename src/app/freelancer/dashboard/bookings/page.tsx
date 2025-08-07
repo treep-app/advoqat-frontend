@@ -18,29 +18,30 @@ import {
   XCircle,
   AlertCircle,
   Video,
-  Phone as PhoneIcon
+  Phone as PhoneIcon,
+  Play,
+  FileText
 } from 'lucide-react'
 import FreelancerLayout from '@/components/layout/freelancer-layout'
 import { API_ENDPOINTS } from '@/lib/config'
 
 interface Consultation {
   id: number
+  case_id: number
+  case_title: string
+  case_description: string
   client_name: string
   client_email: string
-  client_phone: string
-  consultation_date: string
-  consultation_time: string
+  freelancer_name: string
+  consultation_type: 'chat' | 'video' | 'audio'
+  scheduled_at: string
   duration: number
-  consultation_type: 'video' | 'phone' | 'in-person'
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
-  fee: number
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
   notes?: string
+  meeting_link?: string
   created_at: string
-  confirmed_at?: string
-  completed_at?: string
-  cancelled_at?: string
-  cancellation_reason?: string
-  freelancer_id: number
+  started_at?: string
+  ended_at?: string
 }
 
 export default function BookingsPage() {
@@ -63,10 +64,10 @@ export default function BookingsPage() {
       setLoading(true)
       setError('')
       
-      const response = await fetch(API_ENDPOINTS.FREELANCERS.CONSULTATIONS(id))
+      const response = await fetch(API_ENDPOINTS.CONSULTATIONS.GET_USER_CONSULTATIONS('freelancer', id))
       if (response.ok) {
         const data = await response.json()
-        setConsultations(data)
+        setConsultations(data.consultations || [])
       } else {
         setError('Failed to fetch consultations')
       }
@@ -86,13 +87,13 @@ export default function BookingsPage() {
       let endpoint: string
       switch (action) {
         case 'confirm':
-          endpoint = API_ENDPOINTS.FREELANCERS.CONFIRM_CONSULTATION(consultationId.toString())
+          endpoint = API_ENDPOINTS.CONSULTATIONS.START(consultationId.toString())
           break
         case 'complete':
-          endpoint = API_ENDPOINTS.FREELANCERS.COMPLETE_CONSULTATION(consultationId.toString())
+          endpoint = API_ENDPOINTS.CONSULTATIONS.END(consultationId.toString())
           break
         case 'cancel':
-          endpoint = API_ENDPOINTS.FREELANCERS.CANCEL_CONSULTATION(consultationId.toString())
+          endpoint = API_ENDPOINTS.CONSULTATIONS.CANCEL(consultationId.toString())
           break
         default:
           throw new Error('Invalid action')
@@ -123,14 +124,16 @@ export default function BookingsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'pending':
-        return <Badge variant="secondary" className="flex items-center gap-1"><Clock className="h-3 w-3" /> Pending</Badge>
-      case 'confirmed':
-        return <Badge variant="default" className="flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Confirmed</Badge>
+      case 'scheduled':
+        return <Badge variant="secondary" className="flex items-center gap-1"><Clock className="h-3 w-3" /> Scheduled</Badge>
+      case 'in_progress':
+        return <Badge variant="default" className="flex items-center gap-1"><CheckCircle className="h-3 w-3" /> In Progress</Badge>
       case 'completed':
         return <Badge variant="outline" className="flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Completed</Badge>
       case 'cancelled':
         return <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelled</Badge>
+      case 'no_show':
+        return <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" /> No Show</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -140,10 +143,10 @@ export default function BookingsPage() {
     switch (type) {
       case 'video':
         return <Video className="h-4 w-4" />
-      case 'phone':
+      case 'audio':
         return <PhoneIcon className="h-4 w-4" />
-      case 'in-person':
-        return <MapPin className="h-4 w-4" />
+      case 'chat':
+        return <MessageCircle className="h-4 w-4" />
       default:
         return <MessageCircle className="h-4 w-4" />
     }
@@ -230,8 +233,8 @@ export default function BookingsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold">{consultations.filter(c => c.status === 'pending').length}</p>
+                  <p className="text-sm text-gray-600">Scheduled</p>
+                  <p className="text-2xl font-bold">{consultations.filter(c => c.status === 'scheduled').length}</p>
                 </div>
                 <Clock className="h-8 w-8 text-orange-600" />
               </div>
@@ -242,8 +245,8 @@ export default function BookingsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Confirmed</p>
-                  <p className="text-2xl font-bold">{consultations.filter(c => c.status === 'confirmed').length}</p>
+                  <p className="text-sm text-gray-600">In Progress</p>
+                  <p className="text-2xl font-bold">{consultations.filter(c => c.status === 'in_progress').length}</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
@@ -267,13 +270,13 @@ export default function BookingsPage() {
         <Tabs defaultValue="all" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all">All Bookings</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
+            <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
+            <TabsTrigger value="in_progress">In Progress</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
             <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
           </TabsList>
 
-          {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map((status) => (
+          {['all', 'scheduled', 'in_progress', 'completed', 'cancelled'].map((status) => (
             <TabsContent key={status} value={status} className="space-y-4">
               {getFilteredConsultations(status).length === 0 ? (
                 <Card>
@@ -303,20 +306,20 @@ export default function BookingsPage() {
                                                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                                <div className="flex items-center gap-2">
                                  <Calendar className="h-4 w-4 text-gray-500" />
-                                 <span className="font-medium">Date:</span>
-                                 <span>{formatDate(consultation.consultation_date)}</span>
+                                 <span className="font-medium">Scheduled:</span>
+                                 <span>{formatDate(consultation.scheduled_at)}</span>
                                </div>
                                
                                <div className="flex items-center gap-2">
                                  <Clock className="h-4 w-4 text-gray-500" />
-                                 <span className="font-medium">Time:</span>
-                                 <span>{formatTime(consultation.consultation_time)} ({consultation.duration} min)</span>
+                                 <span className="font-medium">Duration:</span>
+                                 <span>{consultation.duration} min</span>
                                </div>
                                
                                <div className="flex items-center gap-2">
-                                 <DollarSign className="h-4 w-4 text-gray-500" />
-                                 <span className="font-medium">Fee:</span>
-                                 <span>{formatCurrency(consultation.fee)}</span>
+                                 <FileText className="h-4 w-4 text-gray-500" />
+                                 <span className="font-medium">Case:</span>
+                                 <span>{consultation.case_title}</span>
                                </div>
                                
                                <div className="flex items-center gap-2">
@@ -332,7 +335,7 @@ export default function BookingsPage() {
                       <CardContent>
                         <div className="space-y-4">
                                                      {/* Client Information */}
-                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                              <div className="flex items-center gap-2">
                                <User className="h-4 w-4 text-gray-500" />
                                <span className="font-medium">Client:</span>
@@ -344,12 +347,6 @@ export default function BookingsPage() {
                                <span className="font-medium">Email:</span>
                                <span>{consultation.client_email}</span>
                              </div>
-                             
-                             <div className="flex items-center gap-2">
-                               <Phone className="h-4 w-4 text-gray-500" />
-                               <span className="font-medium">Phone:</span>
-                               <span>{consultation.client_phone}</span>
-                             </div>
                            </div>
                            
                            {/* Notes */}
@@ -360,13 +357,7 @@ export default function BookingsPage() {
                              </div>
                            )}
                            
-                           {/* Cancellation Reason */}
-                           {consultation.cancellation_reason && (
-                             <div className="p-3 bg-red-50 rounded-lg">
-                               <p className="text-sm font-medium text-red-900 mb-1">Cancellation Reason:</p>
-                               <p className="text-sm text-red-800">{consultation.cancellation_reason}</p>
-                             </div>
-                           )}
+
                           
                                                      {/* Actions */}
                            <div className="flex items-center justify-between">
@@ -375,15 +366,15 @@ export default function BookingsPage() {
                              </div>
                              
                              <div className="flex items-center gap-2">
-                               {consultation.status === 'pending' && (
+                               {consultation.status === 'scheduled' && (
                                  <>
                                    <Button
                                      size="sm"
                                      onClick={() => handleConsultationAction(consultation.id, 'confirm')}
                                      disabled={actionLoading === consultation.id}
                                    >
-                                     <CheckCircle className="h-4 w-4 mr-1" />
-                                     {actionLoading === consultation.id ? 'Confirming...' : 'Confirm'}
+                                     <Play className="h-4 w-4 mr-1" />
+                                     {actionLoading === consultation.id ? 'Starting...' : 'Start'}
                                    </Button>
                                    <Button
                                      size="sm"
@@ -397,14 +388,14 @@ export default function BookingsPage() {
                                  </>
                                )}
                                
-                               {consultation.status === 'confirmed' && (
+                               {consultation.status === 'in_progress' && (
                                  <Button
                                    size="sm"
                                    onClick={() => handleConsultationAction(consultation.id, 'complete')}
                                    disabled={actionLoading === consultation.id}
                                  >
                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                   {actionLoading === consultation.id ? 'Completing...' : 'Mark Complete'}
+                                   {actionLoading === consultation.id ? 'Completing...' : 'Complete'}
                                  </Button>
                                )}
                                

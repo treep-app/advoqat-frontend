@@ -13,7 +13,8 @@ import {
   User,
   Settings,
   CreditCard,
-  Calendar
+  Calendar,
+  Briefcase
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import DashboardRoleRedirect from "./DashboardRoleRedirect";
@@ -127,13 +128,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="hover:shadow-lg hover:scale-105 transition-all duration-300 cursor-pointer group">
               <CardHeader>
-                                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                      <MessageCircle className="w-6 h-6 text-blue-600" />
-                    </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <MessageCircle className="w-6 h-6 text-blue-600" />
+                  </div>
                   <div>
                     <CardTitle>AI Legal Assistant</CardTitle>
                     <CardDescription>Get instant legal advice</CardDescription>
@@ -145,14 +146,11 @@ export default function DashboardPage() {
                   Ask any legal question and get AI-powered guidance instantly.
                 </p>
                 <Button 
-                  className="w-full bg-blue-600 hover:bg-green-700"
+                  className="w-full bg-blue-600 hover:bg-blue-700"
                   onClick={() => router.push('/dashboard/ai-assistant')}
                 >
                    Start Chat
-                  </Button>
-                {/* <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => router.push('/dashboard/chat')}>
-                  Start Chat
-                </Button> */}
+                </Button>
               </CardContent>
             </Card>
 
@@ -195,15 +193,39 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 mb-4">
-                  Book consultations with verified legal professionals.Every day 24 hours.
+                  Book consultations with verified legal professionals. Available 24/7.
                 </p>
                 <Button 
                   className="w-full bg-purple-600 hover:bg-purple-700"
                   onClick={() => router.push('/dashboard/consultations')}
                 >
-                Find Lawyer
+                  Find Lawyer
                 </Button>
-                
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg hover:scale-105 transition-all duration-300 cursor-pointer group">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                    <Briefcase className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <CardTitle>Legal Cases</CardTitle>
+                    <CardDescription>Submit & track cases</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 mb-4">
+                  Submit legal cases for review and track their progress with assigned lawyers.
+                </p>
+                <Button 
+                  className="w-full bg-orange-600 hover:bg-orange-700"
+                  onClick={() => router.push('/dashboard/cases')}
+                >
+                  Submit Case
+                </Button>
               </CardContent>
             </Card>
           </div>
